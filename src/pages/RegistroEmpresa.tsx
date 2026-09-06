@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; 
+import {  Link } from 'react-router-dom'; 
 import { Building2, User, Plus, Trash2, ShieldAlert, ArrowLeft, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2'; 
 
@@ -10,7 +10,6 @@ interface EmpleadoInmediato {
 }
 
 export const RegistroEmpresa = () => {
-  const navigate = useNavigate(); 
 
   const [empresa, setEmpresa] = useState({
     rut_empresa: '',
