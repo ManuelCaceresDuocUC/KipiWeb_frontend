@@ -35,21 +35,9 @@ export const Home = () => {
       </div>
 
       <div className="w-full flex flex-col bg-white rounded shadow-sm border border-slate-200 overflow-hidden h-[600px]">
-        <div className="bg-slate-100 border-b border-slate-200 px-6 py-3 flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-            Panel de pedidos
-          </span>
-          <span className="text-xs text-slate-500 font-mono">ESTADO: CONECTADO</span>
-        </div>
+        
 
-        <iframe 
-          src="https://panel-local.vercel.app/" 
-          width="100%" 
-          height="100%" 
-          title="Panel de Pedidos Externo"
-          className="border-none flex-grow"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-        />
+        
       </div>
     </div>
   );

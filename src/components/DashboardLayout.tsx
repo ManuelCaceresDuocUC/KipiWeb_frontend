@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { QRCodeModal } from './QRCodeModal';
 
 export const DashboardLayout = () => {
   const navigate = useNavigate();
@@ -103,7 +102,7 @@ export const DashboardLayout = () => {
             );
           })}
         </nav>
-        <QRCodeModal />
+        
         {/* Botón de Cerrar Sesión al fondo */}
         <div className="p-4 border-t border-slate-700">
           <button 
