@@ -23,7 +23,7 @@ export const DashboardLayout = () => {
     { name: 'Caja', path: '/ventas' },
     { name: 'Inventario', path: '/inventario' },
     { name: 'Movimientos', path: '/movimientos' },
-    { name: 'Recetas', path: '/recetas' },
+    
     { name: 'Administración', path: '/administracion' },
   ];
 
