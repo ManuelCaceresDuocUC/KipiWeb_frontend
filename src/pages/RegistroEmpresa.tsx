@@ -231,14 +231,51 @@ export const RegistroEmpresa = () => {
             </div>
           </div>
 
-          {/* 3. ADMIN (sin cambios) */}
+          {/* 3. ADMIN */}
           <div className="bg-white p-6 rounded shadow-sm border border-slate-200 space-y-4">
-            {/* ... Oculto para resumir, es exactamente el mismo que antes ... */}
-             <div className="border-b border-slate-100 pb-3 mb-2 flex items-center justify-between">
+            <div className="border-b border-slate-100 pb-3 mb-2 flex items-center justify-between">
               <h3 className="text-base font-semibold text-slate-900">3. Cuenta de Administrador Principal</h3>
               <User className="w-4 h-4 text-slate-400" />
             </div>
-            {/* Resto de campos admin */}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Usuario administrador *</label>
+                <input required type="text" name="usuario" value={admin.usuario} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Correo electrónico *</label>
+                <input required type="email" name="correo" value={admin.correo} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Confirmar correo *</label>
+                <input required type="email" name="correoConfirmacion" value={admin.correoConfirmacion} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Contraseña *</label>
+                <input required type="password" name="contrasena" value={admin.contrasena} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Confirmar contraseña *</label>
+              <input required type="password" name="contrasenaConfirmacion" value={admin.contrasenaConfirmacion} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+            </div>
+
+            {admin.contrasena && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-medium text-slate-600">
+                  <span>Seguridad de contraseña</span>
+                  <span>{textoFuerza}</span>
+                </div>
+                <div className="h-2.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                  <div className={`h-full rounded-full ${colorFuerza}`} style={{ width: `${Math.min((fuerza / 5) * 100, 100)}%` }} />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ✨ 4. COLABORADORES (ACTUALIZADO) */}
