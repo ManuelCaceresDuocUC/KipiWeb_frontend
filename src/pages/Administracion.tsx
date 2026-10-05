@@ -7,6 +7,30 @@ import { useClientes } from '../hooks/useClientes';
 import { useCategorias } from '../hooks/useCategorias';
 import { useNotas } from '../hooks/useNotas';
 
+// Interfaz para extender los campos opcionales/dinámicos de Cuadratura sin recurrir a 'any'
+interface CuadraturaExtendida {
+  id: number | string;
+  estado: string;
+  fechaApertura: string;
+  fechaCierre?: string;
+  cajeroId?: number | string;
+  cajeroNombre?: string;
+  montoApertura?: number;
+  totalSistema?: number;
+  totalRealFisico?: number;
+  diferencia?: number;
+  sucursalNombre?: string;
+  sucursal?: string | { nombre?: string };
+  fondoInicial?: number;
+  ventasEfectivo?: number;
+  ingresosExtra?: number;
+  abonosCredito?: number;
+  retiros?: number;
+  totalEnCaja?: number;
+  ventasTarjeta?: number;
+  ventasCredito?: number;
+}
+
 export const Administracion = () => {
   // 1. Variables de entorno y almacenamiento local
   const API_URL = import.meta.env.VITE_API_URL;
@@ -27,7 +51,7 @@ export const Administracion = () => {
 
   const { 
     categorias, nuevaCategoria, setNuevaCategoria, 
-    editandoCategoriaId,setEditandoCategoriaId, editandoNombre, setEditandoNombre, 
+    editandoCategoriaId, setEditandoCategoriaId, editandoNombre, setEditandoNombre, 
     agregarCategoria, iniciarEdicion, guardarEdicion, eliminarCategoria 
   } = useCategorias(API_URL, empresaId);
 
@@ -48,8 +72,7 @@ export const Administracion = () => {
     const fechaApertura = new Date(c.fechaApertura);
     const ahora = new Date();
     
-    // 2. MAGIA: Reseteamos las horas a la medianoche (00:00:00) 
-    // para que la comparación sea solo de "días calendario"
+    // 2. Reseteamos las horas a la medianoche (00:00:00)
     fechaApertura.setHours(0, 0, 0, 0);
     ahora.setHours(0, 0, 0, 0);
     
@@ -103,7 +126,7 @@ export const Administracion = () => {
             </div>
           </div>
 
-          {/* ✨ MONITOREO DE CAJAS EN VIVO ARREGLADO */}
+          {/* ✨ MONITOREO DE CAJAS EN VIVO */}
           {cuadraturas.filter(c => c.estado === 'ABIERTA').length > 0 && (
             <div className="bg-slate-900 rounded shadow-md border border-slate-800 p-6 mb-8 relative overflow-hidden">
               <div className="absolute top-0 right-0 p-4">
@@ -117,12 +140,16 @@ export const Administracion = () => {
                 Cajas Actualmente Abiertas
               </h2>
               
-              {/* Cambiado a maximo 2 columnas para evitar descuadre */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {cuadraturas.filter(c => c.estado === 'ABIERTA').map(cajaAbierta => {
                   const nombreEmpleado = cajaAbierta.cajeroNombre || empleados.find(emp => emp.id === cajaAbierta.cajeroId)?.usuario || `ID: ${cajaAbierta.cajeroId}`;
                   
-                  const datosCaja = cajaAbierta as any;
+                  const datosCaja = cajaAbierta as unknown as CuadraturaExtendida;
+                  
+                  // Obtención del nombre de la sucursal de forma segura
+                  const nombreSucursal = datosCaja.sucursalNombre || 
+                    (typeof datosCaja.sucursal === 'object' ? datosCaja.sucursal?.nombre : datosCaja.sucursal) || 
+                    'Sucursal Principal';
                   
                   const fondoInicial = cajaAbierta.montoApertura || datosCaja.fondoInicial || 0;
                   const ventasEfectivo = datosCaja.ventasEfectivo || 0;
@@ -142,7 +169,13 @@ export const Administracion = () => {
                       <div className="flex justify-between items-start mb-4 border-b border-slate-200 pb-3 gap-2">
                         <div className="min-w-0">
                           <h3 className="text-lg font-bold text-slate-900 uppercase tracking-wide truncate">{nombreEmpleado}</h3>
-                          <p className="text-slate-500 text-xs mt-0.5">Turno #{cajaAbierta.id}</p>
+                          {/* Muestra la Sucursal y el Turno */}
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="bg-slate-100 text-slate-700 text-xs font-semibold px-2 py-0.5 rounded border border-slate-200">
+                              📍 {nombreSucursal}
+                            </span>
+                            <span className="text-slate-500 text-xs">Turno #{cajaAbierta.id}</span>
+                          </div>
                         </div>
                         <div className="text-right text-xs text-slate-500 shrink-0">
                           <p>Apertura:</p>
@@ -156,7 +189,6 @@ export const Administracion = () => {
                         
                         <h3 className="font-sans font-semibold text-slate-700 mb-2 mt-1 uppercase tracking-wider text-[11px]">Movimientos de Efectivo</h3>
                         
-                        {/* Se agrego items-center, gap-2 y shrink-0 a los valores numéricos */}
                         <div className="flex justify-between items-center border-b border-slate-100 pb-1.5 gap-2">
                           <span className="font-sans leading-tight">Fondo Inicial:</span>
                           <span className="font-semibold text-slate-800 whitespace-nowrap shrink-0">${fondoInicial.toLocaleString()}</span>
@@ -211,13 +243,13 @@ export const Administracion = () => {
               </div>
             </div>
           )}
-          {/* ✨ FIN MONITOREO EN VIVO */}
 
+          {/* TABLA DE CUADRATURAS */}
           <div className="bg-white rounded shadow-sm border border-slate-200 p-6">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 border-b border-slate-100 pb-3 gap-3">
               <div>
                 <h2 className="text-base font-semibold text-slate-800 uppercase tracking-wide">Cuadraturas de Caja</h2>
-                <p className="text-slate-500 text-xs">Registro y control de diferencias de efectivo por cajero.</p>
+                <p className="text-slate-500 text-xs">Registro y control de diferencias de efectivo por cajero y sucursal.</p>
               </div>
               <select 
                 value={filtroCuad} 
@@ -230,11 +262,12 @@ export const Administracion = () => {
               </select>
             </div>
             
-            <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+            <div className="overflow-x-auto max-h-100 overflow-y-auto">
               <table className="w-full text-left text-sm relative">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-medium sticky top-0">
                   <tr>
                     <th className="p-3">Turno / Cajero</th>
+                    <th className="p-3">Sucursal</th>
                     <th className="p-3">Horario</th>
                     <th className="p-3 text-right">Sistema</th>
                     <th className="p-3 text-right">Real Físico</th>
@@ -249,11 +282,21 @@ export const Administracion = () => {
                     const esSobrante = diferencia > 0;
                     const nombreEmpleado = c.cajeroNombre || empleados.find(emp => emp.id === c.cajeroId)?.usuario || `ID: ${c.cajeroId}`;
 
+                    const datosC = c as unknown as CuadraturaExtendida;
+                    const nombreSucursal = datosC.sucursalNombre || 
+                      (typeof datosC.sucursal === 'object' ? datosC.sucursal?.nombre : datosC.sucursal) || 
+                      'Sucursal Principal';
+
                     return (
                       <tr key={c.id} className="hover:bg-slate-50">
                         <td className="p-3 font-medium text-slate-800">
                           <div>{nombreEmpleado}</div>
                           <span className="text-xs font-mono text-slate-400">Turno #{c.id}</span>
+                        </td>
+                        <td className="p-3 text-xs text-slate-700 whitespace-nowrap">
+                          <span className="bg-slate-100 px-2.5 py-1 rounded border border-slate-200 font-medium inline-block">
+                            {nombreSucursal}
+                          </span>
                         </td>
                         <td className="p-3 text-xs text-slate-600 whitespace-nowrap">
                           <div><strong>Abre:</strong> {new Date(c.fechaApertura).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
@@ -285,7 +328,7 @@ export const Administracion = () => {
                   })}
                   {cuadraturasFiltradas.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="text-center p-8 text-slate-400 text-sm">No hay registros para el período seleccionado.</td>
+                      <td colSpan={7} className="text-center p-8 text-slate-400 text-sm">No hay registros para el período seleccionado.</td>
                     </tr>
                   )}
                 </tbody>
@@ -293,6 +336,7 @@ export const Administracion = () => {
             </div>
           </div>
 
+          {/* PRODUCTOS CON MAYOR DEMANDA */}
           <div className="bg-white rounded shadow-sm border border-slate-200 p-6">
             <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
               <h2 className="text-base font-semibold text-slate-800 uppercase tracking-wide">Productos Con Mayor Demanda</h2>
@@ -327,6 +371,7 @@ export const Administracion = () => {
             </div>
           </div>
 
+          {/* PERSONAL DEL SISTEMA */}
           <div className="bg-white rounded shadow-sm border border-slate-200 p-6">
             <h2 className="text-base font-semibold text-slate-800 uppercase tracking-wide mb-4 border-b border-slate-100 pb-3">Personal del Sistema</h2>
             <div className="overflow-x-auto">
@@ -386,7 +431,7 @@ export const Administracion = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded shadow-sm border border-slate-200 p-6 flex flex-col h-full max-h-[500px]">
+          <div className="bg-white rounded shadow-sm border border-slate-200 p-6 flex flex-col h-full max-h-125">
             <h2 className="text-base font-semibold text-slate-800 uppercase tracking-wide mb-4 border-b border-slate-100 pb-3">Notas Administrativas</h2>
             <form onSubmit={agregarNota} className="mb-4">
               <input 
@@ -413,8 +458,7 @@ export const Administracion = () => {
             </div>
           </div>
 
-          {/* ✨ GESTIÓN DE CATEGORÍAS MOVIDA ADENTRO DE LA COLUMNA DERECHA */}
-          <div className="bg-white rounded shadow-sm border border-slate-200 p-6 flex flex-col h-full max-h-[500px]">
+          <div className="bg-white rounded shadow-sm border border-slate-200 p-6 flex flex-col h-full max-h-125">
             <h2 className="text-base font-semibold text-slate-800 uppercase tracking-wide mb-4 border-b border-slate-100 pb-3">Gestión de Categorías</h2>
             
             <form onSubmit={agregarCategoria} className="mb-4 flex gap-2">
@@ -475,7 +519,7 @@ export const Administracion = () => {
 
       </div>
 
-      {/* ✨ MODAL DE DIRECTORIO DE CLIENTES */}
+      {/* MODAL DE DIRECTORIO DE CLIENTES */}
       {mostrarModalClientes && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl flex flex-col max-h-[90vh]">
@@ -560,4 +604,5 @@ export const Administracion = () => {
         </div>
       )}
     </div>
-  );}
+  );
+};
