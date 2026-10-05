@@ -3,10 +3,18 @@ import { Link } from 'react-router-dom';
 import { Building2, User, Plus, Trash2, ShieldAlert, ArrowLeft, Loader2, Store, MapPin } from 'lucide-react';
 import Swal from 'sweetalert2'; 
 
+interface SucursalItem {
+  id: string; // Identificador temporal para relacionar en el formulario
+  nombre: string;
+  direccion: string;
+  comuna: string;
+}
+
 interface EmpleadoInmediato {
   usuario: string;
   contrasena: string;
   rol: 'vendedor' | 'administrador';
+  sucursalId: string; // ID de la sucursal asignada
 }
 
 export const RegistroEmpresa = () => {
@@ -18,14 +26,12 @@ export const RegistroEmpresa = () => {
     giro: ''
   });
 
-  // 2. Datos de la primera Sucursal (Casa Matriz)
-  const [sucursal, setSucursal] = useState({
-    nombre: 'Casa Matriz',
-    direccion: '',
-    comuna: ''
-  });
+  // 2. Lista de Sucursales (Inicia con Casa Matriz por defecto)
+  const [sucursales, setSucursales] = useState<SucursalItem[]>([
+    { id: '1', nombre: 'Casa Matriz', direccion: '', comuna: '' }
+  ]);
 
-  // 3. Datos del Admin
+  // 3. Datos del Admin Principal
   const [admin, setAdmin] = useState({
     usuario: '',
     correo: '',
@@ -40,19 +46,76 @@ export const RegistroEmpresa = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const formStateRef = useRef({ empresa, sucursal, admin, empleados });
-  formStateRef.current = { empresa, sucursal, admin, empleados };
+  const formStateRef = useRef({ empresa, sucursales, admin, empleados });
+  formStateRef.current = { empresa, sucursales, admin, empleados };
 
+  // Handlers para Empresa
   const handleEmpresaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmpresa((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSucursalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSucursal((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  // Handlers para Sucursales
+  const agregarSucursal = () => {
+    const nuevoId = Date.now().toString();
+    const nuevaSucursal: SucursalItem = {
+      id: nuevoId,
+      nombre: `Sucursal ${sucursales.length + 1}`,
+      direccion: '',
+      comuna: ''
+    };
+    setSucursales((prev) => [...prev, nuevaSucursal]);
   };
 
+  const eliminarSucursal = (id: string) => {
+    if (sucursales.length <= 1) {
+      Swal.fire('Atención', 'Debes registrar al menos una sucursal principal.', 'warning');
+      return;
+    }
+
+    const filtradas = sucursales.filter((s) => s.id !== id);
+    setSucursales(filtradas);
+
+    // Reasignar empleados que pertenecían a la sucursal eliminada hacia la primera disponible
+    const primeraDisponible = filtradas[0].id;
+    setEmpleados((prev) =>
+      prev.map((emp) => (emp.sucursalId === id ? { ...emp, sucursalId: primeraDisponible } : emp))
+    );
+  };
+
+  const handleSucursalChange = (id: string, field: keyof SucursalItem, value: string) => {
+    setSucursales((prev) =>
+      prev.map((suc) => (suc.id === id ? { ...suc, [field]: value } : suc))
+    );
+  };
+
+  // Handlers para Admin
   const handleAdminChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAdmin((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  // Handlers para Empleados
+  const agregarFilaEmpleado = () => {
+    setEmpleados((prev) => [
+      ...prev,
+      { 
+        usuario: '', 
+        contrasena: '', 
+        rol: 'vendedor', 
+        sucursalId: sucursales[0]?.id || '1' // Por defecto asignado a la primera sucursal
+      }
+    ]);
+  };
+
+  const eliminarEmpleado = (index: number) => {
+    setEmpleados((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleEmpleadoChange = (index: number, field: keyof EmpleadoInmediato, value: string) => {
+    setEmpleados((prev) => {
+      const nuevos = [...prev];
+      nuevos[index] = { ...nuevos[index], [field]: value };
+      return nuevos;
+    });
   };
 
   const calcularFuerzaClave = (clave: string) => {
@@ -69,28 +132,23 @@ export const RegistroEmpresa = () => {
   const colorFuerza = fuerza === 0 ? 'bg-slate-200' : fuerza <= 2 ? 'bg-red-500' : fuerza <= 4 ? 'bg-yellow-500' : 'bg-green-500';
   const textoFuerza = fuerza === 0 ? '' : fuerza <= 2 ? 'Débil' : fuerza <= 4 ? 'Aceptable' : 'Fuerte';
 
-  const agregarFilaEmpleado = () => {
-    setEmpleados((prev) => [...prev, { usuario: '', contrasena: '', rol: 'vendedor' }]);
-  };
-
-  const eliminarEmpleado = (index: number) => {
-    setEmpleados((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleEmpleadoChange = (index: number, field: keyof EmpleadoInmediato, value: string) => {
-    setEmpleados((prev) => {
-      const nuevos = [...prev];
-      nuevos[index] = { ...nuevos[index], [field]: value };
-      return nuevos;
-    });
-  };
-
   const handleRegistroSubmit = async () => {
     setError('');
-    const { empresa: currentEmpresa, sucursal: currentSucursal, admin: currentAdmin, empleados: currentEmpleados } = formStateRef.current;
+    const { empresa: currentEmpresa, sucursales: currentSucursales, admin: currentAdmin, empleados: currentEmpleados } = formStateRef.current;
 
-    if (!currentEmpresa.rut_empresa || !currentEmpresa.razon_social || !currentEmpresa.giro || !currentSucursal.nombre || !currentAdmin.usuario || !currentAdmin.contrasena || !currentAdmin.correo) {
-      setError('Por favor completa todos los campos obligatorios de la empresa, sucursal y administrador.');
+    if (!currentEmpresa.rut_empresa || !currentEmpresa.razon_social || !currentEmpresa.giro) {
+      setError('Por favor completa todos los campos obligatorios de la empresa.');
+      return;
+    }
+
+    const sucursalInvalida = currentSucursales.some(s => !s.nombre.trim());
+    if (sucursalInvalida) {
+      setError('Todas las sucursales deben tener al menos un nombre definido.');
+      return;
+    }
+
+    if (!currentAdmin.usuario || !currentAdmin.contrasena || !currentAdmin.correo) {
+      setError('Por favor completa todos los campos obligatorios del administrador.');
       return;
     }
 
@@ -112,22 +170,29 @@ export const RegistroEmpresa = () => {
       setLoading(true);
 
       const payloadCompleto = {
-        empresa: {
-          ...currentEmpresa
-        },
-        sucursal: {
-          nombre: currentSucursal.nombre,
-          direccion: currentSucursal.direccion.trim() !== '' ? currentSucursal.direccion : 'Sin dirección registrada',
-          comuna: currentSucursal.comuna.trim() !== '' ? currentSucursal.comuna : 'Sin comuna registrada'
-        },
+        empresa: { ...currentEmpresa },
+        sucursales: currentSucursales.map(s => ({
+          nombre: s.nombre.trim(),
+          direccion: s.direccion.trim() !== '' ? s.direccion.trim() : 'Sin dirección registrada',
+          comuna: s.comuna.trim() !== '' ? s.comuna.trim() : 'Sin comuna registrada'
+        })),
         admin: {
           usuario: currentAdmin.usuario,
           correo: currentAdmin.correo,
           contrasena: currentAdmin.contrasena,
           rol: 'admin'
         },
-        // Filtramos empleados válidos
-        empleados: currentEmpleados.filter(emp => emp.usuario && emp.contrasena)
+        empleados: currentEmpleados
+          .filter(emp => emp.usuario && emp.contrasena)
+          .map(emp => {
+            const sucEncontrada = currentSucursales.find(s => s.id === emp.sucursalId);
+            return {
+              usuario: emp.usuario,
+              contrasena: emp.contrasena,
+              rol: emp.rol,
+              sucursalNombre: sucEncontrada ? sucEncontrada.nombre : currentSucursales[0].nombre
+            };
+          })
       };
 
       const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/registrar-empresa`, {
@@ -191,7 +256,6 @@ export const RegistroEmpresa = () => {
               <h3 className="text-base font-semibold text-slate-900">1. Información Legal de la Empresa</h3>
               <Building2 className="w-4 h-4 text-slate-400" />
             </div>
-            {/* ... Inputs de Empresa (sin cambios) ... */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">RUT Empresa *</label>
@@ -208,26 +272,49 @@ export const RegistroEmpresa = () => {
             </div>
           </div>
 
-          {/* 2. SUCURSAL MATRIZ */}
+          {/* 2. SUCURSALES (DINÁMICAS) */}
           <div className="bg-white p-6 rounded shadow-sm border border-slate-200 space-y-4">
-            <div className="border-b border-slate-100 pb-3 mb-2 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-900">2. Sucursal Principal (Casa Matriz)</h3>
-              <Store className="w-4 h-4 text-slate-400" />
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-2">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">2. Sucursales de la Empresa</h3>
+                <p className="text-xs text-slate-500">Puedes agregar varias sucursales y asignarles personal más abajo.</p>
+              </div>
+              <button type="button" onClick={agregarSucursal} className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded font-medium text-xs transition-colors flex items-center gap-1.5 shadow-sm">
+                <Plus className="w-3.5 h-3.5" /> Agregar Sucursal
+              </button>
             </div>
-            {/* ... Inputs de Sucursal (sin cambios) ... */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Nombre Sucursal *</label>
-                <input required type="text" name="nombre" value={sucursal.nombre} onChange={handleSucursalChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Dirección</label>
-                <input type="text" name="direccion" value={sucursal.direccion} onChange={handleSucursalChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Comuna *</label>
-                <input required type="text" name="comuna" value={sucursal.comuna} onChange={handleSucursalChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
-              </div>
+
+            <div className="space-y-4">
+              {sucursales.map((suc, index) => (
+                <div key={suc.id} className="p-4 bg-slate-50 rounded border border-slate-200 space-y-3 relative">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <Store className="w-3.5 h-3.5 text-slate-500" />
+                      Sucursal #{index + 1} {index === 0 && '(Principal)'}
+                    </span>
+                    {sucursales.length > 1 && (
+                      <button type="button" onClick={() => eliminarSucursal(suc.id)} className="text-slate-400 hover:text-red-600 text-xs flex items-center gap-1 transition-colors" title="Eliminar sucursal">
+                        <Trash2 className="w-3.5 h-3.5" /> Quitar
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Nombre Sucursal *</label>
+                      <input required type="text" value={suc.nombre} onChange={(e) => handleSucursalChange(suc.id, 'nombre', e.target.value)} className="w-full p-2 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" placeholder="Ej: Casa Matriz, Local Centro" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Dirección</label>
+                      <input type="text" value={suc.direccion} onChange={(e) => handleSucursalChange(suc.id, 'direccion', e.target.value)} className="w-full p-2 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" placeholder="Ej: Av. Providencia 1234" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Comuna</label>
+                      <input type="text" value={suc.comuna} onChange={(e) => handleSucursalChange(suc.id, 'comuna', e.target.value)} className="w-full p-2 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" placeholder="Ej: Providencia" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -278,14 +365,12 @@ export const RegistroEmpresa = () => {
             )}
           </div>
 
-          {/* ✨ 4. COLABORADORES (ACTUALIZADO) */}
+          {/* 4. COLABORADORES CON ASIGNACIÓN DE SUCURSAL */}
           <div className="bg-white p-6 rounded shadow-sm border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-2">
               <div>
                 <h3 className="text-base font-semibold text-slate-900">4. Cuentas para Colaboradores</h3>
-                <p className="text-xs text-slate-500">
-                  Estos empleados quedarán asignados automáticamente a la sucursal <strong className="text-slate-700">{sucursal.nombre || 'que crees arriba'}</strong>.
-                </p>
+                <p className="text-xs text-slate-500">Asigna cada colaborador a una de las sucursales creadas arriba.</p>
               </div>
               <button type="button" onClick={agregarFilaEmpleado} className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded font-medium text-xs transition-colors flex items-center gap-1.5 shadow-sm">
                 <Plus className="w-3.5 h-3.5" /> Agregar Cuenta
@@ -301,24 +386,29 @@ export const RegistroEmpresa = () => {
                 {empleados.map((emp, index) => (
                   <div key={index} className="flex flex-col md:flex-row gap-3 items-center bg-slate-50 p-3 rounded border border-slate-200">
                     
-                    {/* Campos de ingreso */}
                     <div className="w-full md:flex-1">
                       <input required type="text" placeholder="Usuario empleado" value={emp.usuario} onChange={(e) => handleEmpleadoChange(index, 'usuario', e.target.value)} className="w-full p-2 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
                     </div>
                     <div className="w-full md:flex-1">
                       <input required type="password" placeholder="Contraseña" value={emp.contrasena} onChange={(e) => handleEmpleadoChange(index, 'contrasena', e.target.value)} className="w-full p-2 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
                     </div>
-                    <div className="w-full md:w-48">
+                    <div className="w-full md:w-44">
                       <select value={emp.rol} onChange={(e) => handleEmpleadoChange(index, 'rol', e.target.value as 'vendedor' | 'administrador')} className="w-full p-2 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white cursor-pointer">
                         <option value="vendedor">Vendedor / Cajero</option>
                         <option value="administrador">Admin secundario</option>
                       </select>
                     </div>
 
-                    {/* ✨ INDICADOR DE SUCURSAL ASIGNADA (Solo lectura) */}
-                    <div className="w-full md:w-auto flex items-center gap-1.5 bg-slate-200 text-slate-600 px-3 py-2 rounded border border-slate-300 text-xs font-medium cursor-not-allowed" title="Asignado a la sucursal actual">
-                      <MapPin className="w-3.5 h-3.5" />
-                      <span className="truncate max-w-[120px]">{sucursal.nombre || 'Sin nombre'}</span>
+                    {/* SELECTOR DINÁMICO DE SUCURSAL */}
+                    <div className="w-full md:w-52 flex items-center gap-1.5 bg-white p-1 rounded border border-slate-300">
+                      <MapPin className="w-4 h-4 text-slate-400 ml-1 shrink-0" />
+                      <select value={emp.sucursalId} onChange={(e) => handleEmpleadoChange(index, 'sucursalId', e.target.value)} className="w-full p-1 text-xs font-medium text-slate-700 bg-transparent outline-none cursor-pointer truncate">
+                        {sucursales.map((suc) => (
+                          <option key={suc.id} value={suc.id}>
+                            {suc.nombre || 'Sin nombre'}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <button type="button" onClick={() => eliminarEmpleado(index)} className="p-2 text-slate-400 hover:text-red-600 rounded transition-colors self-end md:self-center" title="Eliminar usuario">
