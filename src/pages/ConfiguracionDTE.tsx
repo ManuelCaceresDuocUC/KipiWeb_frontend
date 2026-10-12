@@ -35,7 +35,7 @@ export const ConfiguracionDTE = () => {
   useEffect(() => {
     const cargarConfiguracion = async () => {
       try {
-        const token = localStorage.getItem('token'); // <-- Obtener token
+        const token = localStorage.getItem('jwt_token'); // <-- Obtener token
         const res = await fetch(`${API_URL}/dte/configuracion/${empresaId}`, {
           headers: {
             'Authorization': `Bearer ${token}` // <-- Enviar token
@@ -56,7 +56,7 @@ export const ConfiguracionDTE = () => {
     setProbandoConexion(true);
     setMensaje(null);
     try {
-      const token = localStorage.getItem('token'); // <-- Obtener token
+      const token = localStorage.getItem('jwt_token'); // <-- Obtener token
       const res = await fetch(`${API_URL}/dte/probar-conexion`, {
         method: 'POST',
         headers: { 
@@ -91,7 +91,7 @@ export const ConfiguracionDTE = () => {
     setMensaje(null);
 
     try {
-      const token = localStorage.getItem('token'); // <-- Obtener token
+      const token = localStorage.getItem('jwt_token'); // <-- Obtener token
       const res = await fetch(`${API_URL}/dte/configuracion`, {
         method: 'POST',
         headers: { 
