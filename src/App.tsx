@@ -11,6 +11,7 @@ import { DashboardLayout } from './components/DashboardLayout';
 import { ProtectedRoute } from './components/ProtectedRoute'; 
 import { RegistroEmpresa } from './pages/RegistroEmpresa';
 import { RegistroExitoso } from './pages/RegistroExitoso';
+import { ConfiguracionDTE } from './pages/ConfiguracionDTE';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/registroempresa" element={<RegistroEmpresa />} />
         <Route path="/registro-exitoso" element={<RegistroExitoso />} />
 
+
         {/* 🔒 Rutas Protegidas envueltas en el Layout */}
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
@@ -31,6 +33,7 @@ function App() {
             <Route path="/movimientos" element={<Movimientos />} />
             <Route path="/recetas" element={<Recetas />} />
             <Route path="/administracion" element={<Administracion />} />
+            <Route path="/configuracion-dte" element={<ConfiguracionDTE />} />
           </Route>
         </Route>
 
