@@ -35,7 +35,12 @@ export const ConfiguracionDTE = () => {
   useEffect(() => {
     const cargarConfiguracion = async () => {
       try {
-        const res = await fetch(`${API_URL}/dte/configuracion/${empresaId}`);
+        const token = localStorage.getItem('token'); // <-- Obtener token
+        const res = await fetch(`${API_URL}/dte/configuracion/${empresaId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}` // <-- Enviar token
+          }
+        });
         if (res.ok) {
           const data = await res.json();
           if (data) setConfig(data);
@@ -51,11 +56,21 @@ export const ConfiguracionDTE = () => {
     setProbandoConexion(true);
     setMensaje(null);
     try {
+      const token = localStorage.getItem('token'); // <-- Obtener token
       const res = await fetch(`${API_URL}/dte/probar-conexion`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // <-- Enviar token
+        },
         body: JSON.stringify({ ...config, empresaId }),
       });
+      
+      if (res.status === 403 || res.status === 401) {
+        setMensaje({ tipo: 'error', texto: 'Sesión expirada o sin permisos. Por favor, inicia sesión nuevamente.' });
+        return;
+      }
+
       const data = await res.json();
 
       if (res.ok && data.valido) {
@@ -76,11 +91,20 @@ export const ConfiguracionDTE = () => {
     setMensaje(null);
 
     try {
+      const token = localStorage.getItem('token'); // <-- Obtener token
       const res = await fetch(`${API_URL}/dte/configuracion`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // <-- Enviar token
+        },
         body: JSON.stringify({ ...config, empresaId }),
       });
+
+      if (res.status === 403 || res.status === 401) {
+        setMensaje({ tipo: 'error', texto: 'Tu sesión ha expirado. Recarga la página o inicia sesión.' });
+        return;
+      }
 
       if (res.ok) {
         setMensaje({ tipo: 'exito', texto: 'Configuración de facturación guardada correctamente.' });
