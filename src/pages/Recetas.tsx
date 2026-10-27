@@ -3,6 +3,7 @@ import { useRecetas, type Receta } from '../hooks/useRecetas';
 import { useState, useMemo } from 'react';
 import Swal from 'sweetalert2';
 
+import { apiFetch, leerError } from '../helpers/apiFetch';
 interface IngredienteReceta {
   insumoId: number;
   nombre: string;
@@ -142,8 +143,6 @@ export const Recetas = () => {
       return Swal.fire('Información Incompleta', 'Debe ingresar el nombre de la formulación y al menos un insumo componente.', 'warning');
     }
 
-    const empresaIdActiva = localStorage.getItem('empresaId') || '1';
-
     const payload = {
       productoPrincipal: {
         ...productoPrincipal,
@@ -152,9 +151,8 @@ export const Recetas = () => {
         esInsumo: false, 
         stock: 0,
         unidadMedida: 'UN', 
-        activo: true,
-        empresa: { id: Number(empresaIdActiva) },
-        categoria: { id: 1 } 
+        activo: true
+        // empresa la define el servidor desde el token; sin categoría fija (el id 1 pertenecía a otra empresa)
       },
       ingredientes: listaIngredientes.map(ing => ({
         insumoId: ing.insumoId,
@@ -163,9 +161,8 @@ export const Recetas = () => {
     };
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/productos/con-receta?empresaId=${empresaIdActiva}`, {
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL}/productos/con-receta`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
@@ -178,8 +175,7 @@ export const Recetas = () => {
         if (cargarProductos) cargarProductos(); 
         if (cargarRecetas) cargarRecetas(); 
       } else {
-        const errorMsg = await res.text();
-        throw new Error(errorMsg || 'Error al guardar en el servidor');
+        throw new Error(await leerError(res, 'Error al guardar en el servidor'));
       }
     } catch (error: unknown) {
       console.error(error);

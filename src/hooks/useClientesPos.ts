@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiFetch } from '../helpers/apiFetch';
+import { apiFetch, leerError } from '../helpers/apiFetch';
 import Swal from 'sweetalert2';
 import type { ClienteInfo } from '../types/ventas.types';
 
@@ -15,8 +15,6 @@ const formatearRut = (rut: string) => {
 };
 
 export const useClientesPos = (
-  usuarioId: string, 
-  empresaId: number, 
   setClienteId: (id: number) => void
 ) => {
   const [showModalNuevoCliente, setShowModalNuevoCliente] = useState(false);
@@ -43,10 +41,10 @@ export const useClientesPos = (
     try {
       const response = await apiFetch(`${import.meta.env.VITE_API_URL}/clientes`, {
         method: 'POST',
-        body: JSON.stringify({ ...nuevoCliente, empresaId })
+        body: JSON.stringify(nuevoCliente)
       });
 
-      if (!response.ok) throw new Error(await response.text() || "No se pudo registrar el cliente");
+      if (!response.ok) throw new Error(await leerError(response, "No se pudo registrar el cliente"));
 
       const clienteCreado = await response.json();
       setClienteId(clienteCreado.id); 
@@ -61,12 +59,12 @@ export const useClientesPos = (
 
   const handleBuscarClienteConsulta = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!terminoBusquedaCliente.trim() || !empresaId) return;
+    if (!terminoBusquedaCliente.trim()) return;
 
     setCargandoConsultaCliente(true);
     try {
       const terminoLimpio = terminoBusquedaCliente.replace(/[.-]/g, '').trim();
-      const url = `${import.meta.env.VITE_API_URL}/clientes/buscar?termino=${encodeURIComponent(terminoLimpio)}&empresaId=${empresaId}`;
+      const url = `${import.meta.env.VITE_API_URL}/clientes/buscar?termino=${encodeURIComponent(terminoLimpio)}`;
       const res = await apiFetch(url);
       
       if (!res.ok) throw new Error("Cliente no encontrado");
@@ -94,9 +92,7 @@ export const useClientesPos = (
     try {
       const payload = {
         monto: Number(montoAbono),
-        usuarioId: Number(usuarioId),
-        metodoPago,
-        empresaId // ✨ AÑADIR EMPRESA ID AL PAYLOAD
+        metodoPago
       };
 
       const response = await apiFetch(`${import.meta.env.VITE_API_URL}/clientes/${clienteConsultado.id}/abonar`, {
@@ -113,8 +109,7 @@ export const useClientesPos = (
       setMontoAbono('');
       setShowModalConsultaCliente(false);
     } else {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error al registrar el abono');
+      throw new Error(await leerError(response, 'Error al registrar el abono'));
     }
   } catch (error) {
     Swal.fire('Error', error instanceof Error ? error.message : 'No se pudo procesar el abono', 'error');

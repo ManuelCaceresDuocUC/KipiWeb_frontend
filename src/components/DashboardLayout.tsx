@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { esAdmin, limpiarSesion } from '../helpers/session';
 
 export const DashboardLayout = () => {
   const navigate = useNavigate();
@@ -7,18 +8,12 @@ export const DashboardLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Estado para controlar el menú en móvil
 
   const handleLogout = () => {
-    // 🟢 Opción recomendada: Limpia todo el almacenamiento local al salir
-    localStorage.clear(); 
-    
-    // Si prefieres borrar claves específicas en lugar de todo:
-    // localStorage.removeItem('user_session');
-    // localStorage.removeItem('usuarioRol');
-    // localStorage.removeItem('empresaId');
-
+    // Solo se borra la sesión (no 'cierrePendiente', que protege un cierre de caja sin enviar)
+    limpiarSesion();
     navigate('/login', { replace: true });
   };
 
-  const menuOptions = [
+  const todasLasOpciones = [
     { name: 'Inicio', path: '/home' },
     { name: 'Caja', path: '/ventas' },
     { name: 'Inventario', path: '/inventario' },
@@ -26,6 +21,8 @@ export const DashboardLayout = () => {
     
     { name: 'Administración', path: '/administracion' },
   ];
+  // El vendedor no ve Administración (el backend igualmente la bloquea)
+  const menuOptions = todasLasOpciones.filter((o) => o.path !== '/administracion' || esAdmin());
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-slate-50 overflow-hidden font-sans">

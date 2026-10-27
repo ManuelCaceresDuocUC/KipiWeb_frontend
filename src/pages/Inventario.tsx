@@ -64,8 +64,7 @@ export const Inventario = () => {
 
     const cargarCategorias = async () => {
       try {
-        const empresaId = localStorage.getItem('empresaId') || "1";
-        const response = await apiFetch(`${import.meta.env.VITE_API_URL}/categorias?empresaId=${empresaId}`);
+        const response = await apiFetch(`${import.meta.env.VITE_API_URL}/categorias`);
         
         if (response.ok) {
           const data = await response.json();

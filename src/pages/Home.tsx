@@ -6,7 +6,8 @@ import { useNavigate } from 'react-router-dom';
 // ==========================================
 
 // URL del Video de Bienvenida (puedes reemplazarla por tu iframe de YouTube, Vimeo o MP4)
-const VIDEO_BIENVENIDA_URL = "https://www.youtube.com/embed/dQw4w9WgXcQ"; 
+// Dejar vacío hasta tener el video real: mientras esté vacío, el bloque no se muestra.
+const VIDEO_BIENVENIDA_URL = "";
 
 interface Novedad {
   id: number;
@@ -17,32 +18,8 @@ interface Novedad {
   tag: 'Novedad' | 'Mejora' | 'Próximamente';
 }
 
-const NOVEDADES_MOCK: Novedad[] = [
-  {
-    id: 1,
-    version: 'v2.5.0',
-    fecha: '25 Sep 2026',
-    titulo: 'Nuevo Cierre de Caja Ciego en Turnos',
-    descripcion: 'Implementamos la declaración ciega de efectivo para auditorías más transparentes y seguras.',
-    tag: 'Novedad'
-  },
-  {
-    id: 2,
-    version: 'v2.4.2',
-    fecha: '18 Sep 2026',
-    titulo: 'Optimización en Búsqueda de Productos',
-    descripcion: 'Redujimos el tiempo de escaneo y consulta de stock en punto de venta a menos de 100ms.',
-    tag: 'Mejora'
-  },
-  {
-    id: 3,
-    version: 'v2.6.0',
-    fecha: 'Octubre 2026',
-    titulo: 'Integración Directa con Facturación DTE',
-    descripcion: 'Próximamente podrás emitir boletas y facturas electrónicas en un solo clic desde la venta.',
-    tag: 'Próximamente'
-  }
-];
+// Se muestra solo si hay entradas reales (antes eran datos de ejemplo que no correspondían a versiones publicadas).
+const NOVEDADES: Novedad[] = [];
 
 const MODULOS_KIPI = [
   {
@@ -187,10 +164,12 @@ export const Home = () => {
         </button>
       </div>
 
-      {/* 3. SECCIÓN PRINCIPAL: VIDEO + NOVEDADES */}
+      {/* 3. SECCIÓN PRINCIPAL: VIDEO + NOVEDADES (solo con contenido real) */}
+      {(VIDEO_BIENVENIDA_URL || NOVEDADES.length > 0) && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* VIDEO DE BIENVENIDA / CAPACITACIÓN */}
+        {VIDEO_BIENVENIDA_URL && (
         <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4">
           <div className="flex justify-between items-center border-b pb-3">
             <div>
@@ -225,17 +204,20 @@ export const Home = () => {
           </div>
         </div>
 
+        )}
+
         {/* NOVEDADES Y NOTAS DE VERSIÓN */}
+        {NOVEDADES.length > 0 && (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4">
           <div className="flex justify-between items-center border-b pb-3">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               🚀 Novedades del Sistema
             </h2>
-            <span className="text-xs text-blue-600 font-bold">v2.5.0</span>
+            <span className="text-xs text-blue-600 font-bold">{NOVEDADES[0]?.version}</span>
           </div>
 
           <div className="flex flex-col gap-4 divide-y divide-slate-100">
-            {NOVEDADES_MOCK.map((item) => (
+            {NOVEDADES.map((item) => (
               <div key={item.id} className="pt-3 first:pt-0 flex flex-col gap-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getTagColor(item.tag)}`}>
@@ -253,8 +235,10 @@ export const Home = () => {
             ))}
           </div>
         </div>
+        )}
 
       </div>
+      )}
 
       {/* 4. MODULOS Y ECOSISTEMA KIPI */}
       <div className="flex flex-col gap-4">

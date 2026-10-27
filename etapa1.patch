@@ -1,0 +1,1339 @@
+diff --git a/Dockerfile b/Dockerfile
+deleted file mode 100644
+index 15084e4..0000000
+--- a/Dockerfile
++++ /dev/null
+@@ -1,21 +0,0 @@
+-# Etapa 1: Compilación
+-FROM node:20-alpine AS build
+-WORKDIR /app
+-COPY package*.json ./
+-RUN npm install
+-COPY . .
+-RUN npm run build
+-
+-# Etapa 2: Servidor Web
+-FROM nginx:alpine
+-
+-# Copia el resultado de la compilación de la etapa anterior
+-COPY --from=build /app/dist /usr/share/nginx/html
+-
+-# Copia tu configuración personalizada de Nginx
+-COPY nginx.conf /etc/nginx/conf.d/default.conf
+-
+-# MODIFICADO: Ahora exponemos el puerto 80 y el 443 para HTTPS
+-EXPOSE 80 443
+-
+-CMD ["nginx", "-g", "daemon off;"]
+\ No newline at end of file
+diff --git a/nginx.conf b/nginx.conf
+deleted file mode 100644
+index fe9f86f..0000000
+--- a/nginx.conf
++++ /dev/null
+@@ -1,38 +0,0 @@
+-# Bloque HTTP - Redirige todo a HTTPS automáticamente
+-server {
+-    listen 80;
+-    server_name ordpos.duckdns.org;
+-
+-    location / {
+-        return 301 https://$host$request_uri;
+-    }
+-}
+-
+-# Bloque HTTPS - Servidor Seguro
+-server {
+-    listen 443 ssl;
+-    server_name ordpos.duckdns.org;
+-
+-    # Certificados que se inyectarán desde la EC2 mediante el volumen de Docker
+-    ssl_certificate /etc/letsencrypt/live/ordpos.duckdns.org/fullchain.pem;
+-    ssl_certificate_key /etc/letsencrypt/live/ordpos.duckdns.org/privkey.pem;
+-
+-    ssl_protocols TLSv1.2 TLSv1.3;
+-    ssl_ciphers HIGH:!aNULL:!MD5;
+-
+-    # Sirve los archivos estáticos de tu frontend
+-    location / {
+-        root /usr/share/nginx/html;
+-        index index.html;
+-        try_files $uri $uri/ /index.html;
+-    }
+-
+-    # Redirige todo lo que empiece con /api/ hacia la IP PRIVADA de tu backend
+-    location /api/ {
+-        proxy_pass http://172.31.31.202:3000; 
+-        proxy_set_header Host $host;
+-        proxy_set_header X-Real-IP $remote_addr;
+-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+-        proxy_set_header X-Forwarded-Proto $scheme;
+-    }
+-}
+\ No newline at end of file
+diff --git a/src/components/DashboardLayout.tsx b/src/components/DashboardLayout.tsx
+index 686eae4..6d06b73 100644
+--- a/src/components/DashboardLayout.tsx
++++ b/src/components/DashboardLayout.tsx
+@@ -1,5 +1,6 @@
+ import { useState } from 'react';
+ import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
++import { esAdmin, limpiarSesion } from '../helpers/session';
+ 
+ export const DashboardLayout = () => {
+   const navigate = useNavigate();
+@@ -7,18 +8,12 @@ export const DashboardLayout = () => {
+   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Estado para controlar el menú en móvil
+ 
+   const handleLogout = () => {
+-    // 🟢 Opción recomendada: Limpia todo el almacenamiento local al salir
+-    localStorage.clear(); 
+-    
+-    // Si prefieres borrar claves específicas en lugar de todo:
+-    // localStorage.removeItem('user_session');
+-    // localStorage.removeItem('usuarioRol');
+-    // localStorage.removeItem('empresaId');
+-
++    // Solo se borra la sesión (no 'cierrePendiente', que protege un cierre de caja sin enviar)
++    limpiarSesion();
+     navigate('/login', { replace: true });
+   };
+ 
+-  const menuOptions = [
++  const todasLasOpciones = [
+     { name: 'Inicio', path: '/home' },
+     { name: 'Caja', path: '/ventas' },
+     { name: 'Inventario', path: '/inventario' },
+@@ -26,6 +21,8 @@ export const DashboardLayout = () => {
+     
+     { name: 'Administración', path: '/administracion' },
+   ];
++  // El vendedor no ve Administración (el backend igualmente la bloquea)
++  const menuOptions = todasLasOpciones.filter((o) => o.path !== '/administracion' || esAdmin());
+ 
+   return (
+     <div className="flex flex-col md:flex-row h-screen bg-slate-50 overflow-hidden font-sans">
+diff --git a/src/components/ProtectedRoute.tsx b/src/components/ProtectedRoute.tsx
+index 5dc1a22..cb71a2d 100644
+--- a/src/components/ProtectedRoute.tsx
++++ b/src/components/ProtectedRoute.tsx
+@@ -1,13 +1,11 @@
+ import { Navigate, Outlet } from 'react-router-dom';
++import { haySesionValida, limpiarSesion } from '../helpers/session';
+ 
+ export const ProtectedRoute = () => {
+-    const session = localStorage.getItem('user_session');
+-
+-    // Si no hay sesión, redirigimos al login
+-    if (!session) {
+-        return <Navigate to="/login" replace />;
+-    }
+-
+-    // Si hay sesión, renderizamos los componentes hijos (Outlet)
+-    return <Outlet />;
+-};
+\ No newline at end of file
++  // Sin sesión, o con token vencido/ilegible → al login
++  if (!haySesionValida()) {
++    limpiarSesion();
++    return <Navigate to="/login" replace />;
++  }
++  return <Outlet />;
++};
+diff --git a/src/components/Ventas/Modales/ModalConsultaCliente.tsx b/src/components/Ventas/Modales/ModalConsultaCliente.tsx
+index 5e6fa3b..4e104e8 100644
+--- a/src/components/Ventas/Modales/ModalConsultaCliente.tsx
++++ b/src/components/Ventas/Modales/ModalConsultaCliente.tsx
+@@ -64,7 +64,7 @@ export const ModalConsultaCliente = ({
+     let active = true;
+     const timer = setTimeout(async () => {
+       try {
+-        const url = `${import.meta.env.VITE_API_URL}/clientes/buscar?termino=${encodeURIComponent(termino)}&empresaId=${empresaId}`;
++        const url = `${import.meta.env.VITE_API_URL}/clientes/buscar?termino=${encodeURIComponent(termino)}`;
+         const res = await apiFetch(url);
+         if (res.ok && active) {
+           const data = await res.json();
+diff --git a/src/components/Ventas/Modales/ModalPago.tsx b/src/components/Ventas/Modales/ModalPago.tsx
+index 4e15b2c..2c53f6c 100644
+--- a/src/components/Ventas/Modales/ModalPago.tsx
++++ b/src/components/Ventas/Modales/ModalPago.tsx
+@@ -65,7 +65,7 @@ export const ModalPago = ({
+     let active = true;
+     const timer = setTimeout(async () => {
+       try {
+-        const url = `${import.meta.env.VITE_API_URL}/clientes/buscar?termino=${encodeURIComponent(termino)}&empresaId=${empresaId}`;
++        const url = `${import.meta.env.VITE_API_URL}/clientes/buscar?termino=${encodeURIComponent(termino)}`;
+         const res = await apiFetch(url);
+         if (res.ok && active) {
+           const data = await res.json();
+diff --git a/src/helpers/apiFetch.ts b/src/helpers/apiFetch.ts
+index 0a9119b..dbf46a3 100644
+--- a/src/helpers/apiFetch.ts
++++ b/src/helpers/apiFetch.ts
+@@ -1,28 +1,43 @@
+-// src/helpers/apiFetch.ts
++import { getToken, limpiarSesion } from './session';
+ 
++/**
++ * fetch con JWT automático.
++ * - 401: sesión vencida o inválida → se limpia y se manda a /login.
++ * - 403: falta de permiso para esa acción → NO se expulsa; lo maneja quien llama.
++ */
+ export const apiFetch = async (endpoint: string, opciones: RequestInit = {}) => {
+-    // Buscamos el token en el almacenamiento local
+-    const token = localStorage.getItem('jwt_token');
++  const token = getToken();
+ 
+-    // Construimos los headers obligatorios
+-    const headers = {
+-        'Content-Type': 'application/json',
+-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+-        ...opciones.headers,
+-    };
++  const headers = {
++    'Content-Type': 'application/json',
++    ...(token ? { Authorization: `Bearer ${token}` } : {}),
++    ...opciones.headers,
++  };
+ 
+-    // Hacemos la petición adjuntando las opciones y las cabeceras blindadas
+-    const respuesta = await fetch(endpoint, {
+-        ...opciones,
+-        headers,
+-    });
++  const respuesta = await fetch(endpoint, { ...opciones, headers });
+ 
+-    // Si el token expiró o fue manipulado y el backend responde 403/401,
+-    // podemos expulsar al usuario automáticamente a la pantalla de login:
+-    if (respuesta.status === 401 || respuesta.status === 403) {
+-        console.warn("Acceso denegado o sesión expirada.");
+-        // Opcional: localStorage.clear(); window.location.href = '/login';
++  if (respuesta.status === 401 && token) {
++    limpiarSesion();
++    if (window.location.pathname !== '/login') {
++      window.location.replace('/login');
+     }
++  }
+ 
+-    return respuesta;
+-};
+\ No newline at end of file
++  return respuesta;
++};
++
++/** Extrae un mensaje legible de una respuesta de error (JSON {message} o texto plano). */
++export const leerError = async (respuesta: Response, porDefecto = 'Ocurrió un error inesperado'): Promise<string> => {
++  try {
++    const texto = await respuesta.text();
++    if (!texto) return porDefecto;
++    try {
++      const json = JSON.parse(texto);
++      return json.message || json.mensaje || json.error || porDefecto;
++    } catch {
++      return texto.length < 300 ? texto : porDefecto;
++    }
++  } catch {
++    return porDefecto;
++  }
++};
+diff --git a/src/helpers/rut.ts b/src/helpers/rut.ts
+new file mode 100644
+index 0000000..9b7337c
+--- /dev/null
++++ b/src/helpers/rut.ts
+@@ -0,0 +1,21 @@
++// Validación de RUT chileno (módulo 11). Misma regla que el backend.
++
++export const limpiarRut = (rut: string): string => rut.replace(/[^0-9kK]/g, '').toUpperCase();
++
++export const esRutValido = (rut: string): boolean => {
++  const limpio = limpiarRut(rut);
++  if (!/^\d{7,8}[0-9K]$/.test(limpio)) return false;
++
++  const cuerpo = limpio.slice(0, -1);
++  const dv = limpio.slice(-1);
++
++  let suma = 0;
++  let factor = 2;
++  for (let i = cuerpo.length - 1; i >= 0; i--) {
++    suma += Number(cuerpo[i]) * factor;
++    factor = factor === 7 ? 2 : factor + 1;
++  }
++  const resto = 11 - (suma % 11);
++  const esperado = resto === 11 ? '0' : resto === 10 ? 'K' : String(resto);
++  return dv === esperado;
++};
+diff --git a/src/helpers/session.ts b/src/helpers/session.ts
+new file mode 100644
+index 0000000..83c0f4b
+--- /dev/null
++++ b/src/helpers/session.ts
+@@ -0,0 +1,73 @@
++// Única fuente de verdad de la sesión en el navegador.
++// El backend NO confía en nada de esto (identidad y empresa salen del JWT); aquí solo se usa para la UI.
++
++export interface SesionUsuario {
++  id: number;
++  usuario: string;
++  rol: 'admin' | 'vendedor';
++  correo?: string;
++  empresa: { id: number; razonSocial: string; rutEmpresa: string };
++  sucursal?: { id: number; nombre: string };
++}
++
++const K_TOKEN = 'jwt_token';
++const K_SESION = 'user_session';
++// Claves heredadas que aún leen algunas pantallas. Se escriben SOLO con datos reales del servidor.
++const K_LEGACY = ['usuarioRol', 'usuarioNombre', 'usuarioId', 'empresaId'] as const;
++
++export const getToken = (): string | null => {
++  try {
++    return localStorage.getItem(K_TOKEN);
++  } catch {
++    return null;
++  }
++};
++
++export const getSesion = (): SesionUsuario | null => {
++  try {
++    const raw = localStorage.getItem(K_SESION);
++    return raw ? (JSON.parse(raw) as SesionUsuario) : null;
++  } catch {
++    return null;
++  }
++};
++
++/** Segundos desde epoch del `exp` del JWT, o null si el token no se puede leer. */
++const expiracionToken = (token: string): number | null => {
++  try {
++    const payload = token.split('.')[1];
++    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
++    const exp = JSON.parse(json).exp;
++    return typeof exp === 'number' ? exp : null;
++  } catch {
++    return null;
++  }
++};
++
++export const haySesionValida = (): boolean => {
++  const token = getToken();
++  if (!token || !getSesion()) return false;
++  const exp = expiracionToken(token);
++  return exp !== null && exp * 1000 > Date.now();
++};
++
++export const guardarSesion = (usuario: SesionUsuario, token: string): void => {
++  localStorage.setItem(K_TOKEN, token);
++  localStorage.setItem(K_SESION, JSON.stringify(usuario));
++  localStorage.setItem('usuarioRol', usuario.rol);
++  localStorage.setItem('usuarioNombre', usuario.usuario);
++  localStorage.setItem('usuarioId', String(usuario.id));
++  localStorage.setItem('empresaId', String(usuario.empresa.id));
++};
++
++export const limpiarSesion = (): void => {
++  try {
++    localStorage.removeItem(K_TOKEN);
++    localStorage.removeItem(K_SESION);
++    K_LEGACY.forEach((k) => localStorage.removeItem(k));
++  } catch {
++    /* almacenamiento no disponible */
++  }
++};
++
++export const esAdmin = (): boolean => getSesion()?.rol === 'admin';
+diff --git a/src/hooks/useCaja.tsx b/src/hooks/useCaja.tsx
+index 3fd4df6..d3f5e63 100644
+--- a/src/hooks/useCaja.tsx
++++ b/src/hooks/useCaja.tsx
+@@ -1,9 +1,9 @@
+ import { useState, useEffect } from 'react';
+-import { apiFetch } from '../helpers/apiFetch';
++import { apiFetch, leerError } from '../helpers/apiFetch';
+ import Swal from 'sweetalert2';
+ import type { ResumenCaja } from '../types/ventas.types';
+ 
+-export const useCaja = (usuarioId: string) => {
++export const useCaja = () => {
+   const [cargandoCaja, setCargandoCaja] = useState(true); 
+   const [cajaAbierta, setCajaAbierta] = useState(false); 
+   const [montoApertura, setMontoApertura] = useState('');
+@@ -26,7 +26,7 @@ export const useCaja = (usuarioId: string) => {
+   useEffect(() => {
+     const verificarEstadoCaja = async () => {
+       try {
+-        const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/estado?usuarioId=${usuarioId}`);
++        const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/estado`);
+         if (response.ok) {
+           const data = await response.json();
+           setCajaAbierta(data.abierta); 
+@@ -37,8 +37,8 @@ export const useCaja = (usuarioId: string) => {
+         setCargandoCaja(false);
+       }
+     };
+-    if (usuarioId) verificarEstadoCaja();
+-  }, [usuarioId]); 
++    verificarEstadoCaja();
++  }, []); 
+ 
+   useEffect(() => {
+     const cierrePendienteStr = localStorage.getItem('cierrePendiente');
+@@ -61,11 +61,11 @@ export const useCaja = (usuarioId: string) => {
+     
+     setCargandoCaja(true);
+     try {
+-      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/abrir?usuarioId=${usuarioId}`, {
++      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/abrir`, {
+         method: 'POST',
+         body: JSON.stringify({ montoInicial: Number(montoApertura) })
+       });
+-      if (!response.ok) throw new Error(await response.text() || 'Error al procesar la apertura de caja');
++      if (!response.ok) throw new Error(await leerError(response, 'Error al procesar la apertura de caja'));
+       setCajaAbierta(true);
+     } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+@@ -78,8 +78,8 @@ export const useCaja = (usuarioId: string) => {
+   const handleCerrarCaja = async () => {
+     setCargandoCierre(true);
+     try {
+-      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/resumen?usuarioId=${usuarioId}`);
+-      if (!response.ok) throw new Error("No fue posible obtener la información financiera para el cierre");
++      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/resumen`);
++      if (!response.ok) throw new Error(await leerError(response, "No fue posible obtener la información financiera para el cierre"));
+       
+       const data = await response.json();
+       setDatosCierreCalculados(data);
+@@ -98,12 +98,12 @@ export const useCaja = (usuarioId: string) => {
+     if (!montoMovimiento || !motivoMovimiento) return;
+ 
+     try {
+-      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/movimiento?usuarioId=${usuarioId}`, {
++      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/movimiento`, {
+         method: 'POST',
+         body: JSON.stringify({ tipo: tipoMovimiento, monto: Number(montoMovimiento), motivo: motivoMovimiento })
+       });
+ 
+-      if (!response.ok) throw new Error("Error en la comunicación al registrar el movimiento");
++      if (!response.ok) throw new Error(await leerError(response, "Error en la comunicación al registrar el movimiento"));
+       
+       Swal.fire('Operación Registrada', `El ${tipoMovimiento === 'ingreso' ? 'ingreso' : 'retiro'} ha sido registrado correctamente en el sistema.`, 'success');
+       setShowModalMovimiento(false);
+@@ -118,19 +118,18 @@ export const useCaja = (usuarioId: string) => {
+     setShowModalResumen(true);
+     setCargandoResumen(true);
+     try {
+-      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/resumen?usuarioId=${usuarioId}`);
++      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/resumen`);
+       if (response.ok) {
+         const data = await response.json();
+         setDatosResumen(data);
+       } else {
+-        throw new Error("No fue posible consultar el resumen financiero");
++        throw new Error(await leerError(response, "No fue posible consultar el resumen financiero"));
+       }
+     } catch {
+-      // Tu fallback actual
+-      setDatosResumen({
+-        fondoInicial: 50000, ventasEfectivo: 125000, ventasTarjeta: 85000, ingresosExtra: 10000,
+-        abonosCredito: 25000, retiros: 5000, totalEnCaja: 205000 
+-      });
++      // Nunca se muestran cifras inventadas: si falla, se cierra el modal y se avisa
++      setDatosResumen(null);
++      setShowModalResumen(false);
++      Swal.fire('Error', 'No fue posible consultar el resumen de caja. Inténtalo nuevamente.', 'error');
+     } finally {
+       setCargandoResumen(false);
+     }
+@@ -175,30 +174,19 @@ export const useCaja = (usuarioId: string) => {
+ 
+     if (!confirmacion.isConfirmed) return;
+ 
+-    const totalEsperado = datosCierreCalculados.totalEnCaja;
+     const fisicoDeclarado = Number(efectivoFisicoDeclarado);
+-    const diferencia = fisicoDeclarado - totalEsperado;
+ 
+     setCargandoCaja(true);
+     setShowModalCierre(false);
+ 
+     try {
+-      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/cerrar?usuarioId=${usuarioId}`, {
++      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/cerrar`, {
+         method: 'POST',
+-        body: JSON.stringify({
+-          fondoInicial: datosCierreCalculados.fondoInicial,
+-          ventasEfectivo: datosCierreCalculados.ventasEfectivo,
+-          ventasTarjeta: datosCierreCalculados.ventasTarjeta,
+-          ingresosExtra: datosCierreCalculados.ingresosExtra,
+-          abonosCredito: datosCierreCalculados.abonosCredito || 0,
+-          retiros: datosCierreCalculados.retiros,
+-          totalSistema: totalEsperado,
+-          totalRealFisico: fisicoDeclarado,
+-          diferencia: diferencia
+-        })
++        // El servidor calcula el total esperado y la diferencia; el cajero solo declara el efectivo contado
++        body: JSON.stringify({ totalRealFisico: fisicoDeclarado })
+       });
+ 
+-      if (!response.ok) throw new Error(await response.text() || 'Error en la respuesta del servidor');
++      if (!response.ok) throw new Error(await leerError(response, 'Error en la respuesta del servidor'));
+       
+       setCajaAbierta(false);
+       setMontoApertura('');
+diff --git a/src/hooks/useClientesPos.ts b/src/hooks/useClientesPos.ts
+index 112b0e6..38e1d3e 100644
+--- a/src/hooks/useClientesPos.ts
++++ b/src/hooks/useClientesPos.ts
+@@ -1,5 +1,5 @@
+ import { useState } from 'react';
+-import { apiFetch } from '../helpers/apiFetch';
++import { apiFetch, leerError } from '../helpers/apiFetch';
+ import Swal from 'sweetalert2';
+ import type { ClienteInfo } from '../types/ventas.types';
+ 
+@@ -15,8 +15,6 @@ const formatearRut = (rut: string) => {
+ };
+ 
+ export const useClientesPos = (
+-  usuarioId: string, 
+-  empresaId: number, 
+   setClienteId: (id: number) => void
+ ) => {
+   const [showModalNuevoCliente, setShowModalNuevoCliente] = useState(false);
+@@ -43,10 +41,10 @@ export const useClientesPos = (
+     try {
+       const response = await apiFetch(`${import.meta.env.VITE_API_URL}/clientes`, {
+         method: 'POST',
+-        body: JSON.stringify({ ...nuevoCliente, empresaId })
++        body: JSON.stringify(nuevoCliente)
+       });
+ 
+-      if (!response.ok) throw new Error(await response.text() || "No se pudo registrar el cliente");
++      if (!response.ok) throw new Error(await leerError(response, "No se pudo registrar el cliente"));
+ 
+       const clienteCreado = await response.json();
+       setClienteId(clienteCreado.id); 
+@@ -61,12 +59,12 @@ export const useClientesPos = (
+ 
+   const handleBuscarClienteConsulta = async (e: React.FormEvent) => {
+     e.preventDefault();
+-    if (!terminoBusquedaCliente.trim() || !empresaId) return;
++    if (!terminoBusquedaCliente.trim()) return;
+ 
+     setCargandoConsultaCliente(true);
+     try {
+       const terminoLimpio = terminoBusquedaCliente.replace(/[.-]/g, '').trim();
+-      const url = `${import.meta.env.VITE_API_URL}/clientes/buscar?termino=${encodeURIComponent(terminoLimpio)}&empresaId=${empresaId}`;
++      const url = `${import.meta.env.VITE_API_URL}/clientes/buscar?termino=${encodeURIComponent(terminoLimpio)}`;
+       const res = await apiFetch(url);
+       
+       if (!res.ok) throw new Error("Cliente no encontrado");
+@@ -94,9 +92,7 @@ export const useClientesPos = (
+     try {
+       const payload = {
+         monto: Number(montoAbono),
+-        usuarioId: Number(usuarioId),
+-        metodoPago,
+-        empresaId // ✨ AÑADIR EMPRESA ID AL PAYLOAD
++        metodoPago
+       };
+ 
+       const response = await apiFetch(`${import.meta.env.VITE_API_URL}/clientes/${clienteConsultado.id}/abonar`, {
+@@ -113,8 +109,7 @@ export const useClientesPos = (
+       setMontoAbono('');
+       setShowModalConsultaCliente(false);
+     } else {
+-      const errorData = await response.json();
+-      throw new Error(errorData.message || 'Error al registrar el abono');
++      throw new Error(await leerError(response, 'Error al registrar el abono'));
+     }
+   } catch (error) {
+     Swal.fire('Error', error instanceof Error ? error.message : 'No se pudo procesar el abono', 'error');
+diff --git a/src/hooks/useInventario.tsx b/src/hooks/useInventario.tsx
+index cc2ca2f..8f4445a 100644
+--- a/src/hooks/useInventario.tsx
++++ b/src/hooks/useInventario.tsx
+@@ -1,6 +1,6 @@
+ import { useEffect, useState } from "react";
+ import Swal from "sweetalert2";
+-import { apiFetch } from "../helpers/apiFetch"; // ✨ 1. Importación del helper
++import { apiFetch, leerError } from "../helpers/apiFetch"; // ✨ 1. Importación del helper
+ 
+ export interface Producto {
+     id: number;
+@@ -44,8 +44,7 @@ export const useInventario = () => {
+     const cargarProductos = async () => {
+         try {
+             setLoading(true);
+-            const empresaId = localStorage.getItem('empresaId') || "1";
+-            const urlConEmpresa = `${API_URL}?empresaId=${empresaId}`;
++            const urlConEmpresa = `${API_URL}?size=2000`; // la empresa la define el token en el servidor
+             
+             // ✨ 2. Uso de apiFetch en la lectura
+             const respuesta = await apiFetch(urlConEmpresa); 
+@@ -96,13 +95,8 @@ export const useInventario = () => {
+ 
+     const agregarProducto = async (nuevo: Omit<Producto, 'id'>, ingredientes?: IngredienteParaEnviar[]) => {
+         try {
+-            const empresaIdStr = localStorage.getItem('empresaId') || "1";
+-            const empresaId = parseInt(empresaIdStr, 10);
+-
+-            const productoConEmpresa = {
+-                ...nuevo,
+-                empresa: { id: empresaId }
+-            };
++            // La empresa la fija el servidor desde el token: no se envía.
++            const productoConEmpresa = { ...nuevo };
+ 
+             const urlFinal = ingredientes && ingredientes.length > 0 
+                 ? `${API_URL}/con-receta` 
+@@ -119,8 +113,7 @@ export const useInventario = () => {
+             });
+ 
+             if (!res.ok) {
+-                const errorMsg = await res.text();
+-                throw new Error(errorMsg || "Error en el servidor");
++                throw new Error(await leerError(res, "Error en el servidor"));
+             }
+ 
+             await cargarProductos(); 
+diff --git a/src/hooks/useLogin.tsx b/src/hooks/useLogin.tsx
+index 1b57051..49ee51a 100644
+--- a/src/hooks/useLogin.tsx
++++ b/src/hooks/useLogin.tsx
+@@ -1,99 +1,54 @@
+-import { useEffect, useState } from "react";
++import { useState } from "react";
+ import { useNavigate } from "react-router-dom";
+ import Swal from "sweetalert2";
+-import { apiFetch } from "../helpers/apiFetch"; // ✨ 1. Importamos nuestro helper
++import { guardarSesion, type SesionUsuario } from "../helpers/session";
++import { leerError } from "../helpers/apiFetch";
+ 
+-interface Usuario {
++interface Credenciales {
+     usuario: string;
+     contrasena: string;
+-    rol?: string;
+-    id?: number;
+-    empresa?: { id: number };
+ }
+ 
+ export const useLogin = () => {
+     const API_URL = `${import.meta.env.VITE_API_URL}/usuarios`;
+     const navigate = useNavigate();
+-    const [loading, setLoading] = useState(true);
++    const [loading, setLoading] = useState(false);
+     const [error, setError] = useState<string | null>(null);
+-    const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+ 
+-    const eliminarUsuario = (usuario: string) => {
+-        setUsuarios(usuarios.filter(p => p.usuario !== usuario));
+-    };
+-    
+-    const agregarUsuario = (nuevo: Usuario) => {
+-        setUsuarios([...usuarios, nuevo]);
+-    };
+-    
+-    const cargarUsuarios = async () => {
+-        try {
+-            setLoading(true);
+-
+-            // ✨ 2. MIRA QUÉ LIMPIO: apiFetch se encarga de buscar y pegar el JWT automáticamente
+-            const respuesta = await apiFetch(API_URL);
+-
+-            if (!respuesta.ok) throw new Error("Error al conectar con el servidor o sin permisos");
+-            const datos = await respuesta.json();
+-            setUsuarios(datos);
+-        } catch (err: unknown) {
+-            const mensaje = err instanceof Error ? err.message : "Error desconocido";
+-            setError(mensaje);
+-        } finally {
+-            setLoading(false);
+-        }
+-    };
+-
+-    useEffect(() => {
+-        cargarUsuarios();
+-    }, []);
+-
+-    const logearUsuario = async (credenciales: Usuario) => {
+-        setLoading(true); 
++    const logearUsuario = async (credenciales: Credenciales) => {
++        setLoading(true);
+         setError(null);
+         try {
+-            // Para el login podemos seguir usando fetch normal (o apiFetch), 
+-            // ya que en este momento el usuario todavía no tiene un token:
+             const respuesta = await fetch(`${API_URL}/login`, {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify(credenciales)
+             });
+ 
+-            if (respuesta.ok) {
+-                const { usuario: usuarioLogeado, token } = await respuesta.json();
+-                
+-                Swal.fire({
+-                    title: `¡Bienvenido ${usuarioLogeado.usuario}!`,
+-                    icon: 'success',
+-                    timer: 1500,
+-                    showConfirmButton: false
+-                });
++            if (!respuesta.ok) {
++                // 401 credenciales, 403 empresa pendiente de pago, 429 demasiados intentos...
++                throw new Error(await leerError(respuesta, "No se pudo iniciar sesión"));
++            }
++
++            const { usuario, token } = await respuesta.json() as { usuario: SesionUsuario; token: string };
+ 
+-                // Guardado del token y sesión
+-                localStorage.setItem('jwt_token', token);
+-                localStorage.setItem('user_session', JSON.stringify(usuarioLogeado));
+-                
+-                const rolUsuario = usuarioLogeado.rol || 'vendedor';
+-                localStorage.setItem('usuarioRol', rolUsuario);
+-                localStorage.setItem('usuarioNombre', usuarioLogeado.usuario);
+-                localStorage.setItem('usuarioId', usuarioLogeado.id?.toString() || '1');
+-                const idEmpresa = usuarioLogeado.empresa?.id || 1;
+-                localStorage.setItem('empresaId', idEmpresa.toString());
++            // Se guarda exactamente lo que dice el servidor, sin valores de relleno
++            guardarSesion(usuario, token);
+ 
+-                if (rolUsuario === 'administrador' || rolUsuario === 'admin') {
+-                    navigate('/administracion');
+-                } else {
+-                    navigate('/home'); 
+-                }
+-            } else {
+-                // Si la clave o el usuario están mal, lanzamos el error al catch
+-                throw new Error("Usuario o contraseña incorrectos");
+-            }
+-        } catch {
++            Swal.fire({
++                title: `¡Bienvenido ${usuario.usuario}!`,
++                icon: 'success',
++                timer: 1500,
++                showConfirmButton: false
++            });
++
++            navigate(usuario.rol === 'admin' ? '/administracion' : '/home');
++        } catch (err: unknown) {
++            const mensaje = err instanceof Error ? err.message : "No se pudo iniciar sesión";
++            setError(mensaje);
+             Swal.fire({
+                 title: 'Error de acceso',
+-                text: "Usuario o contraseña incorrectos",
++                text: mensaje,
+                 icon: 'error',
+                 confirmButtonColor: '#1E293B',
+                 confirmButtonText: 'Reintentar'
+@@ -103,12 +58,5 @@ export const useLogin = () => {
+         }
+     };
+ 
+-    return {
+-        usuarios,
+-        eliminarUsuario,
+-        agregarUsuario,
+-        logearUsuario,
+-        loading, 
+-        error,
+-    };
+-};
+\ No newline at end of file
++    return { logearUsuario, loading, error };
++};
+diff --git a/src/hooks/useMovimiento.tsx b/src/hooks/useMovimiento.tsx
+index 6d81011..7e9b22f 100644
+--- a/src/hooks/useMovimiento.tsx
++++ b/src/hooks/useMovimiento.tsx
+@@ -30,15 +30,13 @@ export const useMovimiento = () => {
+     const cargarMovimientos = async (fechaInicio?: string, fechaFin?: string) => {
+         try {
+             setLoading(true);
+-            const empresaId = localStorage.getItem('empresaId') || '1';
+-            let url = `${API_URL}?empresaId=${empresaId}`;
+-            
++            const params = new URLSearchParams();
+             if (fechaInicio) {
+-                url += `&fechaInicio=${fechaInicio}`;
+-                if (fechaFin) {
+-                    url += `&fechaFin=${fechaFin}`;
+-                }
++                params.set('fechaInicio', fechaInicio);
++                if (fechaFin) params.set('fechaFin', fechaFin);
+             }
++            const qs = params.toString();
++            const url = qs ? `${API_URL}?${qs}` : API_URL;
+ 
+             // ✨ 2. Uso de apiFetch
+             const respuesta = await apiFetch(url);
+diff --git a/src/hooks/useVentas.tsx b/src/hooks/useVentas.tsx
+index 1cffee7..7ab31b8 100644
+--- a/src/hooks/useVentas.tsx
++++ b/src/hooks/useVentas.tsx
+@@ -1,6 +1,6 @@
+ import { useState } from "react";
+ import Swal from "sweetalert2";
+-import { apiFetch } from "../helpers/apiFetch";
++import { apiFetch, leerError } from "../helpers/apiFetch";
+ 
+ export interface Producto {
+   id: number;
+@@ -76,20 +76,14 @@ const confirmarVentaFinal = async () => {
+       return;
+     }
+ 
+-    const usuarioIdLogueado = localStorage.getItem('usuarioId') || "1";
+-    const empresaIdLogueada = localStorage.getItem('empresaId') || "1";
+-
++    // El servidor toma empresa, cajero y sucursal del token y recalcula el total con sus precios.
++    // Solo se envía qué se vende, cuánto, y el total que el cajero está viendo (para detectar precios desactualizados).
+     const datosVenta = {
+       monto: Math.round(totalVenta),
+-      usuarioId: Number(usuarioIdLogueado),
+-      empresaId: Number(empresaIdLogueada), 
+       clienteId: clienteId ? Number(clienteId) : null,
+       items: carrito.map(p => ({
+         productoId: p.id,
+-        descripcion: p.descripcion, 
+-        precio: p.precio,
+-        cantidad: p.cantidad,
+-        subtotal: p.subtotal
++        cantidad: p.cantidad
+       }))
+     };
+ 
+@@ -138,7 +132,9 @@ const confirmarVentaFinal = async () => {
+           body: JSON.stringify(datosVenta)
+         });
+ 
+-        if (!resAws.ok) throw new Error("Fallo al guardar en la nube tras confirmación del cobro");
++        if (!resAws.ok) {
++          throw new Error(await leerError(resAws, "Fallo al guardar la venta tras confirmar el cobro con tarjeta"));
++        }
+         respuestaBackend = await resAws.json();
+ 
+       } else if (metodoPago === 'CREDITO') {
+@@ -154,8 +150,8 @@ const confirmarVentaFinal = async () => {
+           body: JSON.stringify(datosVenta)
+         });
+ 
++        if (!res.ok) throw new Error(await leerError(res, "Error al registrar el vale de crédito"));
+         respuestaBackend = await res.json();
+-        if (!res.ok) throw new Error(respuestaBackend.message || "Error al registrar el vale de crédito");
+ 
+       } else {
+         // Efectivo
+@@ -171,8 +167,8 @@ const confirmarVentaFinal = async () => {
+           body: JSON.stringify(datosVenta)
+         });
+ 
++        if (!res.ok) throw new Error(await leerError(res, "Error al procesar el pago"));
+         respuestaBackend = await res.json();
+-        if (!res.ok) throw new Error(respuestaBackend.message || "Error al procesar el pago en la nube");
+       }
+ 
+       // Si el servidor devuelve un PDF en base64 para descargar localmente en navegador
+diff --git a/src/pages/Administracion.tsx b/src/pages/Administracion.tsx
+index 63167d4..4e50ac8 100644
+--- a/src/pages/Administracion.tsx
++++ b/src/pages/Administracion.tsx
+@@ -7,6 +7,7 @@ import { useClientes } from '../hooks/useClientes';
+ import { useCategorias } from '../hooks/useCategorias';
+ import { useNotas } from '../hooks/useNotas';
+ 
++import { getSesion } from '../helpers/session';
+ // Interfaz para extender los campos opcionales/dinámicos de Cuadratura sin recurrir a 'any'
+ interface CuadraturaExtendida {
+   id: number | string;
+@@ -34,7 +35,7 @@ interface CuadraturaExtendida {
+ export const Administracion = () => {
+   // 1. Variables de entorno y almacenamiento local
+   const API_URL = import.meta.env.VITE_API_URL;
+-  const empresaId = localStorage.getItem('empresaId') || '1';
++  const empresaId = String(getSesion()?.empresa.id ?? '');
+   const usuarioNombre = localStorage.getItem('usuarioNombre') || 'Usuario';
+ 
+   // 2. Consumo de Hooks
+diff --git a/src/pages/ConfiguracionDTE.tsx b/src/pages/ConfiguracionDTE.tsx
+index b2b3f3b..a968d8a 100644
+--- a/src/pages/ConfiguracionDTE.tsx
++++ b/src/pages/ConfiguracionDTE.tsx
+@@ -1,9 +1,11 @@
+ import { useState, useEffect, type FormEvent } from 'react';
+ import { Link } from 'react-router-dom';
+ 
++import { apiFetch, leerError } from '../helpers/apiFetch';
++
+ interface ConfiguracionDTEData {
+   proveedor: 'openfactura' | 'libredte' | 'simplefactura' | 'relbase' | 'ninguno';
+-  apiKey: string;
++  apiKey: string; // solo lo que el usuario escribe ahora; el servidor nunca devuelve la llave guardada
+   apiSecret?: string;
+   rutEmisor: string;
+   ambiente: 'produccion' | 'sandbox';
+@@ -12,72 +14,87 @@ interface ConfiguracionDTEData {
+   emitirBoletaTransferencia: boolean;
+ }
+ 
++const CONFIG_INICIAL: ConfiguracionDTEData = {
++  proveedor: 'openfactura',
++  apiKey: '',
++  apiSecret: '',
++  rutEmisor: '',
++  ambiente: 'produccion',
++  emitirBoletaEfectivo: true,
++  emitirBoletaTarjeta: false, // Por defecto en false para resguardar voucher de Transbank/Getnet
++  emitirBoletaTransferencia: true,
++};
++
+ export const ConfiguracionDTE = () => {
+   const API_URL = import.meta.env.VITE_API_URL;
+-  const empresaId = localStorage.getItem('empresaId') || '1';
+ 
+   const [guardando, setGuardando] = useState(false);
+   const [probandoConexion, setProbandoConexion] = useState(false);
+   const [mensaje, setMensaje] = useState<{ tipo: 'exito' | 'error'; texto: string } | null>(null);
+-
+-  const [config, setConfig] = useState<ConfiguracionDTEData>({
+-    proveedor: 'openfactura',
+-    apiKey: '',
+-    apiSecret: '',
+-    rutEmisor: '',
+-    ambiente: 'produccion',
+-    emitirBoletaEfectivo: true,
+-    emitirBoletaTarjeta: false, // Por defecto en false para resguardar voucher de Transbank/Getnet
+-    emitirBoletaTransferencia: true,
++  // Estado de la llave ya guardada (viene enmascarada desde el servidor)
++  const [llaveGuardada, setLlaveGuardada] = useState<{ configurada: boolean; enmascarada: string }>({
++    configurada: false,
++    enmascarada: '',
+   });
+ 
+-  // Cargar configuración existente
++  const [config, setConfig] = useState<ConfiguracionDTEData>(CONFIG_INICIAL);
++
++  const hayLlave = config.apiKey.trim() !== '' || llaveGuardada.configurada;
++
++  // Cargar configuración existente (la empresa la determina el token)
+   useEffect(() => {
+     const cargarConfiguracion = async () => {
+       try {
+-        const token = localStorage.getItem('jwt_token'); // <-- Obtener token
+-        const res = await fetch(`${API_URL}/dte/configuracion/${empresaId}`, {
+-          headers: {
+-            'Authorization': `Bearer ${token}` // <-- Enviar token
+-          }
+-        });
++        const res = await apiFetch(`${API_URL}/dte/configuracion`);
+         if (res.ok) {
+           const data = await res.json();
+-          if (data) setConfig(data);
++          if (data) {
++            setConfig({
++              ...CONFIG_INICIAL,
++              proveedor: data.proveedor ?? CONFIG_INICIAL.proveedor,
++              rutEmisor: data.rutEmisor ?? '',
++              ambiente: data.ambiente ?? CONFIG_INICIAL.ambiente,
++              emitirBoletaEfectivo: data.emitirBoletaEfectivo ?? true,
++              emitirBoletaTarjeta: data.emitirBoletaTarjeta ?? false,
++              emitirBoletaTransferencia: data.emitirBoletaTransferencia ?? true,
++              apiKey: '',
++              apiSecret: '',
++            });
++            setLlaveGuardada({
++              configurada: Boolean(data.apiKeyConfigurada),
++              enmascarada: data.apiKeyEnmascarada ?? '',
++            });
++          }
++        } else if (res.status === 403) {
++          setMensaje({ tipo: 'error', texto: 'Solo un administrador puede ver o cambiar la facturación electrónica.' });
+         }
+       } catch {
+         console.error('Error al cargar configuración DTE');
+       }
+     };
+     cargarConfiguracion();
+-  }, [API_URL, empresaId]);
++  }, [API_URL]);
+ 
+   const handleProbarConexion = async () => {
+     setProbandoConexion(true);
+     setMensaje(null);
+     try {
+-      const token = localStorage.getItem('jwt_token'); // <-- Obtener token
+-      const res = await fetch(`${API_URL}/dte/probar-conexion`, {
++      const res = await apiFetch(`${API_URL}/dte/probar-conexion`, {
+         method: 'POST',
+-        headers: { 
+-          'Content-Type': 'application/json',
+-          'Authorization': `Bearer ${token}` // <-- Enviar token
+-        },
+-        body: JSON.stringify({ ...config, empresaId }),
++        body: JSON.stringify(config),
+       });
+-      
+-      if (res.status === 403 || res.status === 401) {
+-        setMensaje({ tipo: 'error', texto: 'Sesión expirada o sin permisos. Por favor, inicia sesión nuevamente.' });
++
++      if (res.status === 403) {
++        setMensaje({ tipo: 'error', texto: 'No tienes permisos para esta acción.' });
+         return;
+       }
+ 
+       const data = await res.json();
+-
+-      if (res.ok && data.valido) {
+-        setMensaje({ tipo: 'exito', texto: '¡Conexión exitosa! La API Key y el certificado son válidos.' });
+-      } else {
+-        setMensaje({ tipo: 'error', texto: data.mensaje || 'Error de conexión. Verifica la API Key y el RUT.' });
+-      }
++      // Se muestra tal cual lo que informa el servidor (no se afirma más de lo que se verificó)
++      setMensaje({
++        tipo: res.ok && data.valido ? 'exito' : 'error',
++        texto: data.mensaje || 'No se pudo verificar la API Key.',
++      });
+     } catch {
+       setMensaje({ tipo: 'error', texto: 'No se pudo conectar con el servidor para probar la API Key.' });
+     } finally {
+@@ -91,28 +108,25 @@ export const ConfiguracionDTE = () => {
+     setMensaje(null);
+ 
+     try {
+-      const token = localStorage.getItem('jwt_token'); // <-- Obtener token
+-      const res = await fetch(`${API_URL}/dte/configuracion`, {
++      // apiKey vacía = el servidor conserva la que ya tenía guardada
++      const res = await apiFetch(`${API_URL}/dte/configuracion`, {
+         method: 'POST',
+-        headers: { 
+-          'Content-Type': 'application/json',
+-          'Authorization': `Bearer ${token}` // <-- Enviar token
+-        },
+-        body: JSON.stringify({ ...config, empresaId }),
++        body: JSON.stringify(config),
+       });
+ 
+-      if (res.status === 403 || res.status === 401) {
+-        setMensaje({ tipo: 'error', texto: 'Tu sesión ha expirado. Recarga la página o inicia sesión.' });
+-        return;
+-      }
+-
+       if (res.ok) {
+         setMensaje({ tipo: 'exito', texto: 'Configuración de facturación guardada correctamente.' });
++        if (config.apiKey.trim() !== '') {
++          setLlaveGuardada({ configurada: true, enmascarada: '••••••••' + config.apiKey.trim().slice(-4) });
++          setConfig((c) => ({ ...c, apiKey: '', apiSecret: '' }));
++        }
++      } else if (res.status === 403) {
++        setMensaje({ tipo: 'error', texto: 'Solo un administrador puede cambiar esta configuración.' });
+       } else {
+-        setMensaje({ tipo: 'error', texto: 'Ocurrió un error al guardar los cambios.' });
++        setMensaje({ tipo: 'error', texto: await leerError(res, 'Ocurrió un error al guardar los cambios.') });
+       }
+     } catch {
+-      setMensaje({ tipo: 'error', texto: 'Error al conectar con la base de datos.' });
++      setMensaje({ tipo: 'error', texto: 'No se pudo conectar con el servidor.' });
+     } finally {
+       setGuardando(false);
+     }
+@@ -204,12 +218,18 @@ export const ConfiguracionDTE = () => {
+                 <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">API Key / Token Privado</label>
+                 <input
+                   type="password"
+-                  placeholder="Pega aquí tu API Key del proveedor..."
++                  placeholder={llaveGuardada.configurada
++                    ? `Guardada (${llaveGuardada.enmascarada}). Escribe una nueva solo para reemplazarla`
++                    : 'Pega aquí tu API Key del proveedor...'}
+                   value={config.apiKey}
+                   onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
++                  autoComplete="new-password"
+                   className="w-full p-2.5 rounded border border-slate-300 bg-white focus:outline-none focus:border-slate-500 text-sm font-mono"
+-                  required={config.proveedor !== 'ninguno'}
++                  required={config.proveedor !== 'ninguno' && !llaveGuardada.configurada}
+                 />
++                {llaveGuardada.configurada && config.apiKey === '' && (
++                  <p className="text-xs text-emerald-700 mt-1">✓ Ya hay una API Key guardada de forma segura.</p>
++                )}
+               </div>
+ 
+               {/* Secret Key opcional si LibreDTE o SimpleFactura lo exigen */}
+@@ -230,10 +250,10 @@ export const ConfiguracionDTE = () => {
+                 <button
+                   type="button"
+                   onClick={handleProbarConexion}
+-                  disabled={probandoConexion || !config.apiKey}
++                  disabled={probandoConexion || !hayLlave}
+                   className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 px-4 rounded text-xs uppercase tracking-wider border border-slate-300 transition-colors disabled:opacity-50"
+                 >
+-                  {probandoConexion ? 'Verificando con SII...' : '🧪 Probar Conexión con Proveedor'}
++                  {probandoConexion ? 'Verificando...' : '🧪 Probar Conexión con Proveedor'}
+                 </button>
+               </div>
+             </div>
+diff --git a/src/pages/Home.tsx b/src/pages/Home.tsx
+index d5231c3..2a7ef6d 100644
+--- a/src/pages/Home.tsx
++++ b/src/pages/Home.tsx
+@@ -6,7 +6,8 @@ import { useNavigate } from 'react-router-dom';
+ // ==========================================
+ 
+ // URL del Video de Bienvenida (puedes reemplazarla por tu iframe de YouTube, Vimeo o MP4)
+-const VIDEO_BIENVENIDA_URL = "https://www.youtube.com/embed/dQw4w9WgXcQ"; 
++// Dejar vacío hasta tener el video real: mientras esté vacío, el bloque no se muestra.
++const VIDEO_BIENVENIDA_URL = "";
+ 
+ interface Novedad {
+   id: number;
+@@ -17,32 +18,8 @@ interface Novedad {
+   tag: 'Novedad' | 'Mejora' | 'Próximamente';
+ }
+ 
+-const NOVEDADES_MOCK: Novedad[] = [
+-  {
+-    id: 1,
+-    version: 'v2.5.0',
+-    fecha: '25 Sep 2026',
+-    titulo: 'Nuevo Cierre de Caja Ciego en Turnos',
+-    descripcion: 'Implementamos la declaración ciega de efectivo para auditorías más transparentes y seguras.',
+-    tag: 'Novedad'
+-  },
+-  {
+-    id: 2,
+-    version: 'v2.4.2',
+-    fecha: '18 Sep 2026',
+-    titulo: 'Optimización en Búsqueda de Productos',
+-    descripcion: 'Redujimos el tiempo de escaneo y consulta de stock en punto de venta a menos de 100ms.',
+-    tag: 'Mejora'
+-  },
+-  {
+-    id: 3,
+-    version: 'v2.6.0',
+-    fecha: 'Octubre 2026',
+-    titulo: 'Integración Directa con Facturación DTE',
+-    descripcion: 'Próximamente podrás emitir boletas y facturas electrónicas en un solo clic desde la venta.',
+-    tag: 'Próximamente'
+-  }
+-];
++// Se muestra solo si hay entradas reales (antes eran datos de ejemplo que no correspondían a versiones publicadas).
++const NOVEDADES: Novedad[] = [];
+ 
+ const MODULOS_KIPI = [
+   {
+@@ -187,10 +164,12 @@ export const Home = () => {
+         </button>
+       </div>
+ 
+-      {/* 3. SECCIÓN PRINCIPAL: VIDEO + NOVEDADES */}
++      {/* 3. SECCIÓN PRINCIPAL: VIDEO + NOVEDADES (solo con contenido real) */}
++      {(VIDEO_BIENVENIDA_URL || NOVEDADES.length > 0) && (
+       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+         
+         {/* VIDEO DE BIENVENIDA / CAPACITACIÓN */}
++        {VIDEO_BIENVENIDA_URL && (
+         <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4">
+           <div className="flex justify-between items-center border-b pb-3">
+             <div>
+@@ -225,17 +204,20 @@ export const Home = () => {
+           </div>
+         </div>
+ 
++        )}
++
+         {/* NOVEDADES Y NOTAS DE VERSIÓN */}
++        {NOVEDADES.length > 0 && (
+         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4">
+           <div className="flex justify-between items-center border-b pb-3">
+             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+               🚀 Novedades del Sistema
+             </h2>
+-            <span className="text-xs text-blue-600 font-bold">v2.5.0</span>
++            <span className="text-xs text-blue-600 font-bold">{NOVEDADES[0]?.version}</span>
+           </div>
+ 
+           <div className="flex flex-col gap-4 divide-y divide-slate-100">
+-            {NOVEDADES_MOCK.map((item) => (
++            {NOVEDADES.map((item) => (
+               <div key={item.id} className="pt-3 first:pt-0 flex flex-col gap-1.5">
+                 <div className="flex items-center justify-between gap-2">
+                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getTagColor(item.tag)}`}>
+@@ -253,8 +235,10 @@ export const Home = () => {
+             ))}
+           </div>
+         </div>
++        )}
+ 
+       </div>
++      )}
+ 
+       {/* 4. MODULOS Y ECOSISTEMA KIPI */}
+       <div className="flex flex-col gap-4">
+diff --git a/src/pages/Inventario.tsx b/src/pages/Inventario.tsx
+index 7446970..1e3bc1b 100644
+--- a/src/pages/Inventario.tsx
++++ b/src/pages/Inventario.tsx
+@@ -64,8 +64,7 @@ export const Inventario = () => {
+ 
+     const cargarCategorias = async () => {
+       try {
+-        const empresaId = localStorage.getItem('empresaId') || "1";
+-        const response = await apiFetch(`${import.meta.env.VITE_API_URL}/categorias?empresaId=${empresaId}`);
++        const response = await apiFetch(`${import.meta.env.VITE_API_URL}/categorias`);
+         
+         if (response.ok) {
+           const data = await response.json();
+diff --git a/src/pages/Recetas.tsx b/src/pages/Recetas.tsx
+index 5881940..1d1e0f2 100644
+--- a/src/pages/Recetas.tsx
++++ b/src/pages/Recetas.tsx
+@@ -3,6 +3,7 @@ import { useRecetas, type Receta } from '../hooks/useRecetas';
+ import { useState, useMemo } from 'react';
+ import Swal from 'sweetalert2';
+ 
++import { apiFetch, leerError } from '../helpers/apiFetch';
+ interface IngredienteReceta {
+   insumoId: number;
+   nombre: string;
+@@ -142,8 +143,6 @@ export const Recetas = () => {
+       return Swal.fire('Información Incompleta', 'Debe ingresar el nombre de la formulación y al menos un insumo componente.', 'warning');
+     }
+ 
+-    const empresaIdActiva = localStorage.getItem('empresaId') || '1';
+-
+     const payload = {
+       productoPrincipal: {
+         ...productoPrincipal,
+@@ -152,9 +151,8 @@ export const Recetas = () => {
+         esInsumo: false, 
+         stock: 0,
+         unidadMedida: 'UN', 
+-        activo: true,
+-        empresa: { id: Number(empresaIdActiva) },
+-        categoria: { id: 1 } 
++        activo: true
++        // empresa la define el servidor desde el token; sin categoría fija (el id 1 pertenecía a otra empresa)
+       },
+       ingredientes: listaIngredientes.map(ing => ({
+         insumoId: ing.insumoId,
+@@ -163,9 +161,8 @@ export const Recetas = () => {
+     };
+ 
+     try {
+-      const res = await fetch(`${import.meta.env.VITE_API_URL}/productos/con-receta?empresaId=${empresaIdActiva}`, {
++      const res = await apiFetch(`${import.meta.env.VITE_API_URL}/productos/con-receta`, {
+         method: 'POST',
+-        headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(payload)
+       });
+ 
+@@ -178,8 +175,7 @@ export const Recetas = () => {
+         if (cargarProductos) cargarProductos(); 
+         if (cargarRecetas) cargarRecetas(); 
+       } else {
+-        const errorMsg = await res.text();
+-        throw new Error(errorMsg || 'Error al guardar en el servidor');
++        throw new Error(await leerError(res, 'Error al guardar en el servidor'));
+       }
+     } catch (error: unknown) {
+       console.error(error);
+diff --git a/src/pages/RegistroEmpresa.tsx b/src/pages/RegistroEmpresa.tsx
+index 4ec2787..dcea882 100644
+--- a/src/pages/RegistroEmpresa.tsx
++++ b/src/pages/RegistroEmpresa.tsx
+@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
+ import { Link } from 'react-router-dom'; 
+ import { Building2, User, Plus, Trash2, ShieldAlert, ArrowLeft, Loader2, Store, MapPin } from 'lucide-react';
+ import Swal from 'sweetalert2'; 
++import { esRutValido } from '../helpers/rut';
++import { leerError } from '../helpers/apiFetch';
+ 
+ interface SucursalItem {
+   id: string; // Identificador temporal para relacionar en el formulario
+@@ -141,6 +143,11 @@ export const RegistroEmpresa = () => {
+       return;
+     }
+ 
++    if (!esRutValido(currentEmpresa.rut_empresa)) {
++      setError('El RUT de la empresa no es válido. Revisa el número y el dígito verificador.');
++      return;
++    }
++
+     const sucursalInvalida = currentSucursales.some(s => !s.nombre.trim());
+     if (sucursalInvalida) {
+       setError('Todas las sucursales deben tener al menos un nombre definido.');
+@@ -152,6 +159,20 @@ export const RegistroEmpresa = () => {
+       return;
+     }
+ 
++    if (currentAdmin.usuario.trim().length < 3) {
++      setError('El nombre de usuario debe tener al menos 3 caracteres.');
++      return;
++    }
++    if (currentAdmin.contrasena.length < 8) {
++      setError('La contraseña debe tener al menos 8 caracteres.');
++      return;
++    }
++    const empleadoDebil = currentEmpleados.find(emp => emp.usuario && (emp.usuario.trim().length < 3 || emp.contrasena.length < 8));
++    if (empleadoDebil) {
++      setError(`El empleado "${empleadoDebil.usuario}" necesita usuario de 3+ caracteres y contraseña de 8+.`);
++      return;
++    }
++
+     const regexCorreo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+     if (!regexCorreo.test(currentAdmin.correo)) {
+       setError('El formato del correo electrónico no es válido.');
+@@ -189,7 +210,7 @@ export const RegistroEmpresa = () => {
+             return {
+               usuario: emp.usuario,
+               contrasena: emp.contrasena,
+-              rol: emp.rol,
++              rol: emp.rol === 'administrador' ? 'admin' : 'vendedor',
+               sucursalNombre: sucEncontrada ? sucEncontrada.nombre : currentSucursales[0].nombre
+             };
+           })
+@@ -202,8 +223,7 @@ export const RegistroEmpresa = () => {
+       });
+ 
+       if (!response.ok) {
+-        const errorMsg = await response.text();
+-        throw new Error(errorMsg || 'Error en el servidor al registrar la empresa');
++        throw new Error(await leerError(response, 'Error en el servidor al registrar la empresa'));
+       }
+ 
+       const data = await response.json();
+diff --git a/src/pages/Ventas.tsx b/src/pages/Ventas.tsx
+index 5365ac8..6674313 100644
+--- a/src/pages/Ventas.tsx
++++ b/src/pages/Ventas.tsx
+@@ -22,10 +22,10 @@ import { BuscadorVentas } from '../components/Ventas/UI/BuscadorVentas';
+ import { DetalleCarrito } from '../components/Ventas/UI/DetalleCarrito';
+ import { DesglosePago } from '../components/Ventas/UI/DesglosePago';
+ 
++import { getSesion } from '../helpers/session';
+ export const Ventas = () => {
+-  const usuarioId = localStorage.getItem('usuarioId') || "1";
+-  // ✨ Obtenemos el empresaId desde localStorage
+-  const empresaId = Number(localStorage.getItem('empresaId')) || 1;
++  // Para la UI solamente: el servidor identifica empresa y usuario por el token
++  const empresaId = getSesion()?.empresa.id ?? 0;
+   
+   // Refs y estados de UI
+   const buscadorRef = useRef<HTMLDivElement>(null);
+@@ -48,7 +48,7 @@ const [metodoPagoAbono, setMetodoPagoAbono] = useState<'EFECTIVO' | 'TARJETA'>('
+   } = ventasContext;
+ 
+   // 2. Hook de Caja
+-  const cajaContext = useCaja(usuarioId);
++  const cajaContext = useCaja();
+   const { 
+     cargandoCaja, cajaAbierta, montoApertura, setMontoApertura,
+     showModalMovimiento, setShowModalMovimiento, tipoMovimiento, setTipoMovimiento,
+@@ -61,7 +61,7 @@ const [metodoPagoAbono, setMetodoPagoAbono] = useState<'EFECTIVO' | 'TARJETA'>('
+   } = cajaContext;
+ 
+   // 3. Hook de Clientes
+-const clientesContext = useClientesPos(usuarioId, empresaId, setClienteId);
++const clientesContext = useClientesPos(setClienteId);
+   const {
+     showModalNuevoCliente, setShowModalNuevoCliente, nuevoCliente, setNuevoCliente,
+     showModalConsultaCliente, setShowModalConsultaCliente, terminoBusquedaCliente, setTerminoBusquedaCliente,

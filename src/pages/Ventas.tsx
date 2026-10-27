@@ -22,10 +22,10 @@ import { BuscadorVentas } from '../components/Ventas/UI/BuscadorVentas';
 import { DetalleCarrito } from '../components/Ventas/UI/DetalleCarrito';
 import { DesglosePago } from '../components/Ventas/UI/DesglosePago';
 
+import { getSesion } from '../helpers/session';
 export const Ventas = () => {
-  const usuarioId = localStorage.getItem('usuarioId') || "1";
-  // ✨ Obtenemos el empresaId desde localStorage
-  const empresaId = Number(localStorage.getItem('empresaId')) || 1;
+  // Para la UI solamente: el servidor identifica empresa y usuario por el token
+  const empresaId = getSesion()?.empresa.id ?? 0;
   
   // Refs y estados de UI
   const buscadorRef = useRef<HTMLDivElement>(null);
@@ -48,7 +48,7 @@ const [metodoPagoAbono, setMetodoPagoAbono] = useState<'EFECTIVO' | 'TARJETA'>('
   } = ventasContext;
 
   // 2. Hook de Caja
-  const cajaContext = useCaja(usuarioId);
+  const cajaContext = useCaja();
   const { 
     cargandoCaja, cajaAbierta, montoApertura, setMontoApertura,
     showModalMovimiento, setShowModalMovimiento, tipoMovimiento, setTipoMovimiento,
@@ -61,7 +61,7 @@ const [metodoPagoAbono, setMetodoPagoAbono] = useState<'EFECTIVO' | 'TARJETA'>('
   } = cajaContext;
 
   // 3. Hook de Clientes
-const clientesContext = useClientesPos(usuarioId, empresaId, setClienteId);
+const clientesContext = useClientesPos(setClienteId);
   const {
     showModalNuevoCliente, setShowModalNuevoCliente, nuevoCliente, setNuevoCliente,
     showModalConsultaCliente, setShowModalConsultaCliente, terminoBusquedaCliente, setTerminoBusquedaCliente,

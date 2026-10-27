@@ -65,7 +65,7 @@ export const ModalPago = ({
     let active = true;
     const timer = setTimeout(async () => {
       try {
-        const url = `${import.meta.env.VITE_API_URL}/clientes/buscar?termino=${encodeURIComponent(termino)}&empresaId=${empresaId}`;
+        const url = `${import.meta.env.VITE_API_URL}/clientes/buscar?termino=${encodeURIComponent(termino)}`;
         const res = await apiFetch(url);
         if (res.ok && active) {
           const data = await res.json();

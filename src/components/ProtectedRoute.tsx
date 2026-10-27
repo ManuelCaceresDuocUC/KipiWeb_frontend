@@ -1,13 +1,11 @@
 import { Navigate, Outlet } from 'react-router-dom';
+import { haySesionValida, limpiarSesion } from '../helpers/session';
 
 export const ProtectedRoute = () => {
-    const session = localStorage.getItem('user_session');
-
-    // Si no hay sesión, redirigimos al login
-    if (!session) {
-        return <Navigate to="/login" replace />;
-    }
-
-    // Si hay sesión, renderizamos los componentes hijos (Outlet)
-    return <Outlet />;
+  // Sin sesión, o con token vencido/ilegible → al login
+  if (!haySesionValida()) {
+    limpiarSesion();
+    return <Navigate to="/login" replace />;
+  }
+  return <Outlet />;
 };

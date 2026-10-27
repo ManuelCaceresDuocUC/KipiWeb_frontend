@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { apiFetch } from '../helpers/apiFetch';
+import { apiFetch, leerError } from '../helpers/apiFetch';
 import Swal from 'sweetalert2';
 import type { ResumenCaja } from '../types/ventas.types';
 
-export const useCaja = (usuarioId: string) => {
+export const useCaja = () => {
   const [cargandoCaja, setCargandoCaja] = useState(true); 
   const [cajaAbierta, setCajaAbierta] = useState(false); 
   const [montoApertura, setMontoApertura] = useState('');
@@ -26,7 +26,7 @@ export const useCaja = (usuarioId: string) => {
   useEffect(() => {
     const verificarEstadoCaja = async () => {
       try {
-        const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/estado?usuarioId=${usuarioId}`);
+        const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/estado`);
         if (response.ok) {
           const data = await response.json();
           setCajaAbierta(data.abierta); 
@@ -37,8 +37,8 @@ export const useCaja = (usuarioId: string) => {
         setCargandoCaja(false);
       }
     };
-    if (usuarioId) verificarEstadoCaja();
-  }, [usuarioId]); 
+    verificarEstadoCaja();
+  }, []); 
 
   useEffect(() => {
     const cierrePendienteStr = localStorage.getItem('cierrePendiente');
@@ -61,11 +61,11 @@ export const useCaja = (usuarioId: string) => {
     
     setCargandoCaja(true);
     try {
-      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/abrir?usuarioId=${usuarioId}`, {
+      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/abrir`, {
         method: 'POST',
         body: JSON.stringify({ montoInicial: Number(montoApertura) })
       });
-      if (!response.ok) throw new Error(await response.text() || 'Error al procesar la apertura de caja');
+      if (!response.ok) throw new Error(await leerError(response, 'Error al procesar la apertura de caja'));
       setCajaAbierta(true);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
@@ -78,8 +78,8 @@ export const useCaja = (usuarioId: string) => {
   const handleCerrarCaja = async () => {
     setCargandoCierre(true);
     try {
-      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/resumen?usuarioId=${usuarioId}`);
-      if (!response.ok) throw new Error("No fue posible obtener la información financiera para el cierre");
+      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/resumen`);
+      if (!response.ok) throw new Error(await leerError(response, "No fue posible obtener la información financiera para el cierre"));
       
       const data = await response.json();
       setDatosCierreCalculados(data);
@@ -98,12 +98,12 @@ export const useCaja = (usuarioId: string) => {
     if (!montoMovimiento || !motivoMovimiento) return;
 
     try {
-      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/movimiento?usuarioId=${usuarioId}`, {
+      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/movimiento`, {
         method: 'POST',
         body: JSON.stringify({ tipo: tipoMovimiento, monto: Number(montoMovimiento), motivo: motivoMovimiento })
       });
 
-      if (!response.ok) throw new Error("Error en la comunicación al registrar el movimiento");
+      if (!response.ok) throw new Error(await leerError(response, "Error en la comunicación al registrar el movimiento"));
       
       Swal.fire('Operación Registrada', `El ${tipoMovimiento === 'ingreso' ? 'ingreso' : 'retiro'} ha sido registrado correctamente en el sistema.`, 'success');
       setShowModalMovimiento(false);
@@ -118,19 +118,18 @@ export const useCaja = (usuarioId: string) => {
     setShowModalResumen(true);
     setCargandoResumen(true);
     try {
-      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/resumen?usuarioId=${usuarioId}`);
+      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/resumen`);
       if (response.ok) {
         const data = await response.json();
         setDatosResumen(data);
       } else {
-        throw new Error("No fue posible consultar el resumen financiero");
+        throw new Error(await leerError(response, "No fue posible consultar el resumen financiero"));
       }
     } catch {
-      // Tu fallback actual
-      setDatosResumen({
-        fondoInicial: 50000, ventasEfectivo: 125000, ventasTarjeta: 85000, ingresosExtra: 10000,
-        abonosCredito: 25000, retiros: 5000, totalEnCaja: 205000 
-      });
+      // Nunca se muestran cifras inventadas: si falla, se cierra el modal y se avisa
+      setDatosResumen(null);
+      setShowModalResumen(false);
+      Swal.fire('Error', 'No fue posible consultar el resumen de caja. Inténtalo nuevamente.', 'error');
     } finally {
       setCargandoResumen(false);
     }
@@ -175,30 +174,19 @@ export const useCaja = (usuarioId: string) => {
 
     if (!confirmacion.isConfirmed) return;
 
-    const totalEsperado = datosCierreCalculados.totalEnCaja;
     const fisicoDeclarado = Number(efectivoFisicoDeclarado);
-    const diferencia = fisicoDeclarado - totalEsperado;
 
     setCargandoCaja(true);
     setShowModalCierre(false);
 
     try {
-      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/cerrar?usuarioId=${usuarioId}`, {
+      const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/cerrar`, {
         method: 'POST',
-        body: JSON.stringify({
-          fondoInicial: datosCierreCalculados.fondoInicial,
-          ventasEfectivo: datosCierreCalculados.ventasEfectivo,
-          ventasTarjeta: datosCierreCalculados.ventasTarjeta,
-          ingresosExtra: datosCierreCalculados.ingresosExtra,
-          abonosCredito: datosCierreCalculados.abonosCredito || 0,
-          retiros: datosCierreCalculados.retiros,
-          totalSistema: totalEsperado,
-          totalRealFisico: fisicoDeclarado,
-          diferencia: diferencia
-        })
+        // El servidor calcula el total esperado y la diferencia; el cajero solo declara el efectivo contado
+        body: JSON.stringify({ totalRealFisico: fisicoDeclarado })
       });
 
-      if (!response.ok) throw new Error(await response.text() || 'Error en la respuesta del servidor');
+      if (!response.ok) throw new Error(await leerError(response, 'Error en la respuesta del servidor'));
       
       setCajaAbierta(false);
       setMontoApertura('');

@@ -1,9 +1,11 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 
+import { apiFetch, leerError } from '../helpers/apiFetch';
+
 interface ConfiguracionDTEData {
   proveedor: 'openfactura' | 'libredte' | 'simplefactura' | 'relbase' | 'ninguno';
-  apiKey: string;
+  apiKey: string; // solo lo que el usuario escribe ahora; el servidor nunca devuelve la llave guardada
   apiSecret?: string;
   rutEmisor: string;
   ambiente: 'produccion' | 'sandbox';
@@ -12,72 +14,87 @@ interface ConfiguracionDTEData {
   emitirBoletaTransferencia: boolean;
 }
 
+const CONFIG_INICIAL: ConfiguracionDTEData = {
+  proveedor: 'openfactura',
+  apiKey: '',
+  apiSecret: '',
+  rutEmisor: '',
+  ambiente: 'produccion',
+  emitirBoletaEfectivo: true,
+  emitirBoletaTarjeta: false, // Por defecto en false para resguardar voucher de Transbank/Getnet
+  emitirBoletaTransferencia: true,
+};
+
 export const ConfiguracionDTE = () => {
   const API_URL = import.meta.env.VITE_API_URL;
-  const empresaId = localStorage.getItem('empresaId') || '1';
 
   const [guardando, setGuardando] = useState(false);
   const [probandoConexion, setProbandoConexion] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: 'exito' | 'error'; texto: string } | null>(null);
-
-  const [config, setConfig] = useState<ConfiguracionDTEData>({
-    proveedor: 'openfactura',
-    apiKey: '',
-    apiSecret: '',
-    rutEmisor: '',
-    ambiente: 'produccion',
-    emitirBoletaEfectivo: true,
-    emitirBoletaTarjeta: false, // Por defecto en false para resguardar voucher de Transbank/Getnet
-    emitirBoletaTransferencia: true,
+  // Estado de la llave ya guardada (viene enmascarada desde el servidor)
+  const [llaveGuardada, setLlaveGuardada] = useState<{ configurada: boolean; enmascarada: string }>({
+    configurada: false,
+    enmascarada: '',
   });
 
-  // Cargar configuración existente
+  const [config, setConfig] = useState<ConfiguracionDTEData>(CONFIG_INICIAL);
+
+  const hayLlave = config.apiKey.trim() !== '' || llaveGuardada.configurada;
+
+  // Cargar configuración existente (la empresa la determina el token)
   useEffect(() => {
     const cargarConfiguracion = async () => {
       try {
-        const token = localStorage.getItem('jwt_token'); // <-- Obtener token
-        const res = await fetch(`${API_URL}/dte/configuracion/${empresaId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}` // <-- Enviar token
-          }
-        });
+        const res = await apiFetch(`${API_URL}/dte/configuracion`);
         if (res.ok) {
           const data = await res.json();
-          if (data) setConfig(data);
+          if (data) {
+            setConfig({
+              ...CONFIG_INICIAL,
+              proveedor: data.proveedor ?? CONFIG_INICIAL.proveedor,
+              rutEmisor: data.rutEmisor ?? '',
+              ambiente: data.ambiente ?? CONFIG_INICIAL.ambiente,
+              emitirBoletaEfectivo: data.emitirBoletaEfectivo ?? true,
+              emitirBoletaTarjeta: data.emitirBoletaTarjeta ?? false,
+              emitirBoletaTransferencia: data.emitirBoletaTransferencia ?? true,
+              apiKey: '',
+              apiSecret: '',
+            });
+            setLlaveGuardada({
+              configurada: Boolean(data.apiKeyConfigurada),
+              enmascarada: data.apiKeyEnmascarada ?? '',
+            });
+          }
+        } else if (res.status === 403) {
+          setMensaje({ tipo: 'error', texto: 'Solo un administrador puede ver o cambiar la facturación electrónica.' });
         }
       } catch {
         console.error('Error al cargar configuración DTE');
       }
     };
     cargarConfiguracion();
-  }, [API_URL, empresaId]);
+  }, [API_URL]);
 
   const handleProbarConexion = async () => {
     setProbandoConexion(true);
     setMensaje(null);
     try {
-      const token = localStorage.getItem('jwt_token'); // <-- Obtener token
-      const res = await fetch(`${API_URL}/dte/probar-conexion`, {
+      const res = await apiFetch(`${API_URL}/dte/probar-conexion`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // <-- Enviar token
-        },
-        body: JSON.stringify({ ...config, empresaId }),
+        body: JSON.stringify(config),
       });
-      
-      if (res.status === 403 || res.status === 401) {
-        setMensaje({ tipo: 'error', texto: 'Sesión expirada o sin permisos. Por favor, inicia sesión nuevamente.' });
+
+      if (res.status === 403) {
+        setMensaje({ tipo: 'error', texto: 'No tienes permisos para esta acción.' });
         return;
       }
 
       const data = await res.json();
-
-      if (res.ok && data.valido) {
-        setMensaje({ tipo: 'exito', texto: '¡Conexión exitosa! La API Key y el certificado son válidos.' });
-      } else {
-        setMensaje({ tipo: 'error', texto: data.mensaje || 'Error de conexión. Verifica la API Key y el RUT.' });
-      }
+      // Se muestra tal cual lo que informa el servidor (no se afirma más de lo que se verificó)
+      setMensaje({
+        tipo: res.ok && data.valido ? 'exito' : 'error',
+        texto: data.mensaje || 'No se pudo verificar la API Key.',
+      });
     } catch {
       setMensaje({ tipo: 'error', texto: 'No se pudo conectar con el servidor para probar la API Key.' });
     } finally {
@@ -91,28 +108,25 @@ export const ConfiguracionDTE = () => {
     setMensaje(null);
 
     try {
-      const token = localStorage.getItem('jwt_token'); // <-- Obtener token
-      const res = await fetch(`${API_URL}/dte/configuracion`, {
+      // apiKey vacía = el servidor conserva la que ya tenía guardada
+      const res = await apiFetch(`${API_URL}/dte/configuracion`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // <-- Enviar token
-        },
-        body: JSON.stringify({ ...config, empresaId }),
+        body: JSON.stringify(config),
       });
-
-      if (res.status === 403 || res.status === 401) {
-        setMensaje({ tipo: 'error', texto: 'Tu sesión ha expirado. Recarga la página o inicia sesión.' });
-        return;
-      }
 
       if (res.ok) {
         setMensaje({ tipo: 'exito', texto: 'Configuración de facturación guardada correctamente.' });
+        if (config.apiKey.trim() !== '') {
+          setLlaveGuardada({ configurada: true, enmascarada: '••••••••' + config.apiKey.trim().slice(-4) });
+          setConfig((c) => ({ ...c, apiKey: '', apiSecret: '' }));
+        }
+      } else if (res.status === 403) {
+        setMensaje({ tipo: 'error', texto: 'Solo un administrador puede cambiar esta configuración.' });
       } else {
-        setMensaje({ tipo: 'error', texto: 'Ocurrió un error al guardar los cambios.' });
+        setMensaje({ tipo: 'error', texto: await leerError(res, 'Ocurrió un error al guardar los cambios.') });
       }
     } catch {
-      setMensaje({ tipo: 'error', texto: 'Error al conectar con la base de datos.' });
+      setMensaje({ tipo: 'error', texto: 'No se pudo conectar con el servidor.' });
     } finally {
       setGuardando(false);
     }
@@ -204,12 +218,18 @@ export const ConfiguracionDTE = () => {
                 <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">API Key / Token Privado</label>
                 <input
                   type="password"
-                  placeholder="Pega aquí tu API Key del proveedor..."
+                  placeholder={llaveGuardada.configurada
+                    ? `Guardada (${llaveGuardada.enmascarada}). Escribe una nueva solo para reemplazarla`
+                    : 'Pega aquí tu API Key del proveedor...'}
                   value={config.apiKey}
                   onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
+                  autoComplete="new-password"
                   className="w-full p-2.5 rounded border border-slate-300 bg-white focus:outline-none focus:border-slate-500 text-sm font-mono"
-                  required={config.proveedor !== 'ninguno'}
+                  required={config.proveedor !== 'ninguno' && !llaveGuardada.configurada}
                 />
+                {llaveGuardada.configurada && config.apiKey === '' && (
+                  <p className="text-xs text-emerald-700 mt-1">✓ Ya hay una API Key guardada de forma segura.</p>
+                )}
               </div>
 
               {/* Secret Key opcional si LibreDTE o SimpleFactura lo exigen */}
@@ -230,10 +250,10 @@ export const ConfiguracionDTE = () => {
                 <button
                   type="button"
                   onClick={handleProbarConexion}
-                  disabled={probandoConexion || !config.apiKey}
+                  disabled={probandoConexion || !hayLlave}
                   className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 px-4 rounded text-xs uppercase tracking-wider border border-slate-300 transition-colors disabled:opacity-50"
                 >
-                  {probandoConexion ? 'Verificando con SII...' : '🧪 Probar Conexión con Proveedor'}
+                  {probandoConexion ? 'Verificando...' : '🧪 Probar Conexión con Proveedor'}
                 </button>
               </div>
             </div>

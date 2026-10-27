@@ -1,99 +1,54 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
-import { apiFetch } from "../helpers/apiFetch"; // ✨ 1. Importamos nuestro helper
+import { guardarSesion, type SesionUsuario } from "../helpers/session";
+import { leerError } from "../helpers/apiFetch";
 
-interface Usuario {
+interface Credenciales {
     usuario: string;
     contrasena: string;
-    rol?: string;
-    id?: number;
-    empresa?: { id: number };
 }
 
 export const useLogin = () => {
     const API_URL = `${import.meta.env.VITE_API_URL}/usuarios`;
     const navigate = useNavigate();
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [usuarios, setUsuarios] = useState<Usuario[]>([]);
 
-    const eliminarUsuario = (usuario: string) => {
-        setUsuarios(usuarios.filter(p => p.usuario !== usuario));
-    };
-    
-    const agregarUsuario = (nuevo: Usuario) => {
-        setUsuarios([...usuarios, nuevo]);
-    };
-    
-    const cargarUsuarios = async () => {
-        try {
-            setLoading(true);
-
-            // ✨ 2. MIRA QUÉ LIMPIO: apiFetch se encarga de buscar y pegar el JWT automáticamente
-            const respuesta = await apiFetch(API_URL);
-
-            if (!respuesta.ok) throw new Error("Error al conectar con el servidor o sin permisos");
-            const datos = await respuesta.json();
-            setUsuarios(datos);
-        } catch (err: unknown) {
-            const mensaje = err instanceof Error ? err.message : "Error desconocido";
-            setError(mensaje);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        cargarUsuarios();
-    }, []);
-
-    const logearUsuario = async (credenciales: Usuario) => {
-        setLoading(true); 
+    const logearUsuario = async (credenciales: Credenciales) => {
+        setLoading(true);
         setError(null);
         try {
-            // Para el login podemos seguir usando fetch normal (o apiFetch), 
-            // ya que en este momento el usuario todavía no tiene un token:
             const respuesta = await fetch(`${API_URL}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(credenciales)
             });
 
-            if (respuesta.ok) {
-                const { usuario: usuarioLogeado, token } = await respuesta.json();
-                
-                Swal.fire({
-                    title: `¡Bienvenido ${usuarioLogeado.usuario}!`,
-                    icon: 'success',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-
-                // Guardado del token y sesión
-                localStorage.setItem('jwt_token', token);
-                localStorage.setItem('user_session', JSON.stringify(usuarioLogeado));
-                
-                const rolUsuario = usuarioLogeado.rol || 'vendedor';
-                localStorage.setItem('usuarioRol', rolUsuario);
-                localStorage.setItem('usuarioNombre', usuarioLogeado.usuario);
-                localStorage.setItem('usuarioId', usuarioLogeado.id?.toString() || '1');
-                const idEmpresa = usuarioLogeado.empresa?.id || 1;
-                localStorage.setItem('empresaId', idEmpresa.toString());
-
-                if (rolUsuario === 'administrador' || rolUsuario === 'admin') {
-                    navigate('/administracion');
-                } else {
-                    navigate('/home'); 
-                }
-            } else {
-                // Si la clave o el usuario están mal, lanzamos el error al catch
-                throw new Error("Usuario o contraseña incorrectos");
+            if (!respuesta.ok) {
+                // 401 credenciales, 403 empresa pendiente de pago, 429 demasiados intentos...
+                throw new Error(await leerError(respuesta, "No se pudo iniciar sesión"));
             }
-        } catch {
+
+            const { usuario, token } = await respuesta.json() as { usuario: SesionUsuario; token: string };
+
+            // Se guarda exactamente lo que dice el servidor, sin valores de relleno
+            guardarSesion(usuario, token);
+
+            Swal.fire({
+                title: `¡Bienvenido ${usuario.usuario}!`,
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false
+            });
+
+            navigate(usuario.rol === 'admin' ? '/administracion' : '/home');
+        } catch (err: unknown) {
+            const mensaje = err instanceof Error ? err.message : "No se pudo iniciar sesión";
+            setError(mensaje);
             Swal.fire({
                 title: 'Error de acceso',
-                text: "Usuario o contraseña incorrectos",
+                text: mensaje,
                 icon: 'error',
                 confirmButtonColor: '#1E293B',
                 confirmButtonText: 'Reintentar'
@@ -103,12 +58,5 @@ export const useLogin = () => {
         }
     };
 
-    return {
-        usuarios,
-        eliminarUsuario,
-        agregarUsuario,
-        logearUsuario,
-        loading, 
-        error,
-    };
+    return { logearUsuario, loading, error };
 };

@@ -1,0 +1,5 @@
+Archivos que la etapa 1 ELIMINA del repositorio frontend (ya van borrados en etapa1.patch):
+
+Dockerfile                          (el despliegue real es Vercel)
+nginx.conf                          (idem)
+.github/workflows/deploy-frontend.yml  (despliegue antiguo a AWS S3)

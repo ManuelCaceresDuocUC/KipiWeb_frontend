@@ -30,15 +30,13 @@ export const useMovimiento = () => {
     const cargarMovimientos = async (fechaInicio?: string, fechaFin?: string) => {
         try {
             setLoading(true);
-            const empresaId = localStorage.getItem('empresaId') || '1';
-            let url = `${API_URL}?empresaId=${empresaId}`;
-            
+            const params = new URLSearchParams();
             if (fechaInicio) {
-                url += `&fechaInicio=${fechaInicio}`;
-                if (fechaFin) {
-                    url += `&fechaFin=${fechaFin}`;
-                }
+                params.set('fechaInicio', fechaInicio);
+                if (fechaFin) params.set('fechaFin', fechaFin);
             }
+            const qs = params.toString();
+            const url = qs ? `${API_URL}?${qs}` : API_URL;
 
             // ✨ 2. Uso de apiFetch
             const respuesta = await apiFetch(url);

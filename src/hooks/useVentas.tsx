@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Swal from "sweetalert2";
-import { apiFetch } from "../helpers/apiFetch";
+import { apiFetch, leerError } from "../helpers/apiFetch";
 
 export interface Producto {
   id: number;
@@ -76,20 +76,14 @@ const confirmarVentaFinal = async () => {
       return;
     }
 
-    const usuarioIdLogueado = localStorage.getItem('usuarioId') || "1";
-    const empresaIdLogueada = localStorage.getItem('empresaId') || "1";
-
+    // El servidor toma empresa, cajero y sucursal del token y recalcula el total con sus precios.
+    // Solo se envía qué se vende, cuánto, y el total que el cajero está viendo (para detectar precios desactualizados).
     const datosVenta = {
       monto: Math.round(totalVenta),
-      usuarioId: Number(usuarioIdLogueado),
-      empresaId: Number(empresaIdLogueada), 
       clienteId: clienteId ? Number(clienteId) : null,
       items: carrito.map(p => ({
         productoId: p.id,
-        descripcion: p.descripcion, 
-        precio: p.precio,
-        cantidad: p.cantidad,
-        subtotal: p.subtotal
+        cantidad: p.cantidad
       }))
     };
 
@@ -138,7 +132,9 @@ const confirmarVentaFinal = async () => {
           body: JSON.stringify(datosVenta)
         });
 
-        if (!resAws.ok) throw new Error("Fallo al guardar en la nube tras confirmación del cobro");
+        if (!resAws.ok) {
+          throw new Error(await leerError(resAws, "Fallo al guardar la venta tras confirmar el cobro con tarjeta"));
+        }
         respuestaBackend = await resAws.json();
 
       } else if (metodoPago === 'CREDITO') {
@@ -154,8 +150,8 @@ const confirmarVentaFinal = async () => {
           body: JSON.stringify(datosVenta)
         });
 
+        if (!res.ok) throw new Error(await leerError(res, "Error al registrar el vale de crédito"));
         respuestaBackend = await res.json();
-        if (!res.ok) throw new Error(respuestaBackend.message || "Error al registrar el vale de crédito");
 
       } else {
         // Efectivo
@@ -171,8 +167,8 @@ const confirmarVentaFinal = async () => {
           body: JSON.stringify(datosVenta)
         });
 
+        if (!res.ok) throw new Error(await leerError(res, "Error al procesar el pago"));
         respuestaBackend = await res.json();
-        if (!res.ok) throw new Error(respuestaBackend.message || "Error al procesar el pago en la nube");
       }
 
       // Si el servidor devuelve un PDF en base64 para descargar localmente en navegador

@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom'; 
 import { Building2, User, Plus, Trash2, ShieldAlert, ArrowLeft, Loader2, Store, MapPin } from 'lucide-react';
 import Swal from 'sweetalert2'; 
+import { esRutValido } from '../helpers/rut';
+import { leerError } from '../helpers/apiFetch';
 
 interface SucursalItem {
   id: string; // Identificador temporal para relacionar en el formulario
@@ -141,6 +143,11 @@ export const RegistroEmpresa = () => {
       return;
     }
 
+    if (!esRutValido(currentEmpresa.rut_empresa)) {
+      setError('El RUT de la empresa no es válido. Revisa el número y el dígito verificador.');
+      return;
+    }
+
     const sucursalInvalida = currentSucursales.some(s => !s.nombre.trim());
     if (sucursalInvalida) {
       setError('Todas las sucursales deben tener al menos un nombre definido.');
@@ -149,6 +156,20 @@ export const RegistroEmpresa = () => {
 
     if (!currentAdmin.usuario || !currentAdmin.contrasena || !currentAdmin.correo) {
       setError('Por favor completa todos los campos obligatorios del administrador.');
+      return;
+    }
+
+    if (currentAdmin.usuario.trim().length < 3) {
+      setError('El nombre de usuario debe tener al menos 3 caracteres.');
+      return;
+    }
+    if (currentAdmin.contrasena.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+    const empleadoDebil = currentEmpleados.find(emp => emp.usuario && (emp.usuario.trim().length < 3 || emp.contrasena.length < 8));
+    if (empleadoDebil) {
+      setError(`El empleado "${empleadoDebil.usuario}" necesita usuario de 3+ caracteres y contraseña de 8+.`);
       return;
     }
 
@@ -189,7 +210,7 @@ export const RegistroEmpresa = () => {
             return {
               usuario: emp.usuario,
               contrasena: emp.contrasena,
-              rol: emp.rol,
+              rol: emp.rol === 'administrador' ? 'admin' : 'vendedor',
               sucursalNombre: sucEncontrada ? sucEncontrada.nombre : currentSucursales[0].nombre
             };
           })
@@ -202,8 +223,7 @@ export const RegistroEmpresa = () => {
       });
 
       if (!response.ok) {
-        const errorMsg = await response.text();
-        throw new Error(errorMsg || 'Error en el servidor al registrar la empresa');
+        throw new Error(await leerError(response, 'Error en el servidor al registrar la empresa'));
       }
 
       const data = await response.json();

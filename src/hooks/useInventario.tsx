@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
-import { apiFetch } from "../helpers/apiFetch"; // ✨ 1. Importación del helper
+import { apiFetch, leerError } from "../helpers/apiFetch"; // ✨ 1. Importación del helper
 
 export interface Producto {
     id: number;
@@ -44,8 +44,7 @@ export const useInventario = () => {
     const cargarProductos = async () => {
         try {
             setLoading(true);
-            const empresaId = localStorage.getItem('empresaId') || "1";
-            const urlConEmpresa = `${API_URL}?empresaId=${empresaId}`;
+            const urlConEmpresa = `${API_URL}?size=2000`; // la empresa la define el token en el servidor
             
             // ✨ 2. Uso de apiFetch en la lectura
             const respuesta = await apiFetch(urlConEmpresa); 
@@ -96,13 +95,8 @@ export const useInventario = () => {
 
     const agregarProducto = async (nuevo: Omit<Producto, 'id'>, ingredientes?: IngredienteParaEnviar[]) => {
         try {
-            const empresaIdStr = localStorage.getItem('empresaId') || "1";
-            const empresaId = parseInt(empresaIdStr, 10);
-
-            const productoConEmpresa = {
-                ...nuevo,
-                empresa: { id: empresaId }
-            };
+            // La empresa la fija el servidor desde el token: no se envía.
+            const productoConEmpresa = { ...nuevo };
 
             const urlFinal = ingredientes && ingredientes.length > 0 
                 ? `${API_URL}/con-receta` 
@@ -119,8 +113,7 @@ export const useInventario = () => {
             });
 
             if (!res.ok) {
-                const errorMsg = await res.text();
-                throw new Error(errorMsg || "Error en el servidor");
+                throw new Error(await leerError(res, "Error en el servidor"));
             }
 
             await cargarProductos(); 

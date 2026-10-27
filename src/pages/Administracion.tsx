@@ -7,6 +7,7 @@ import { useClientes } from '../hooks/useClientes';
 import { useCategorias } from '../hooks/useCategorias';
 import { useNotas } from '../hooks/useNotas';
 
+import { getSesion } from '../helpers/session';
 // Interfaz para extender los campos opcionales/dinámicos de Cuadratura sin recurrir a 'any'
 interface CuadraturaExtendida {
   id: number | string;
@@ -34,7 +35,7 @@ interface CuadraturaExtendida {
 export const Administracion = () => {
   // 1. Variables de entorno y almacenamiento local
   const API_URL = import.meta.env.VITE_API_URL;
-  const empresaId = localStorage.getItem('empresaId') || '1';
+  const empresaId = String(getSesion()?.empresa.id ?? '');
   const usuarioNombre = localStorage.getItem('usuarioNombre') || 'Usuario';
 
   // 2. Consumo de Hooks

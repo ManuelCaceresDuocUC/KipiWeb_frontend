@@ -1,28 +1,43 @@
-// src/helpers/apiFetch.ts
+import { getToken, limpiarSesion } from './session';
 
+/**
+ * fetch con JWT automático.
+ * - 401: sesión vencida o inválida → se limpia y se manda a /login.
+ * - 403: falta de permiso para esa acción → NO se expulsa; lo maneja quien llama.
+ */
 export const apiFetch = async (endpoint: string, opciones: RequestInit = {}) => {
-    // Buscamos el token en el almacenamiento local
-    const token = localStorage.getItem('jwt_token');
+  const token = getToken();
 
-    // Construimos los headers obligatorios
-    const headers = {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        ...opciones.headers,
-    };
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...opciones.headers,
+  };
 
-    // Hacemos la petición adjuntando las opciones y las cabeceras blindadas
-    const respuesta = await fetch(endpoint, {
-        ...opciones,
-        headers,
-    });
+  const respuesta = await fetch(endpoint, { ...opciones, headers });
 
-    // Si el token expiró o fue manipulado y el backend responde 403/401,
-    // podemos expulsar al usuario automáticamente a la pantalla de login:
-    if (respuesta.status === 401 || respuesta.status === 403) {
-        console.warn("Acceso denegado o sesión expirada.");
-        // Opcional: localStorage.clear(); window.location.href = '/login';
+  if (respuesta.status === 401 && token) {
+    limpiarSesion();
+    if (window.location.pathname !== '/login') {
+      window.location.replace('/login');
     }
+  }
 
-    return respuesta;
+  return respuesta;
+};
+
+/** Extrae un mensaje legible de una respuesta de error (JSON {message} o texto plano). */
+export const leerError = async (respuesta: Response, porDefecto = 'Ocurrió un error inesperado'): Promise<string> => {
+  try {
+    const texto = await respuesta.text();
+    if (!texto) return porDefecto;
+    try {
+      const json = JSON.parse(texto);
+      return json.message || json.mensaje || json.error || porDefecto;
+    } catch {
+      return texto.length < 300 ? texto : porDefecto;
+    }
+  } catch {
+    return porDefecto;
+  }
 };
