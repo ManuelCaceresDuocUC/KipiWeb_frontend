@@ -1,5 +1,7 @@
 import { useState } from "react";
+import Swal from "sweetalert2";
 import { useMovimiento, type Movimiento } from "../hooks/useMovimiento"; 
+import { apiFetch, leerError } from "../helpers/apiFetch";
 
 type TipoFiltro = 'hoy' | 'dia' | 'periodo' | 'semana' | 'mes';
 
@@ -38,14 +40,46 @@ export const Movimientos = () => {
     const [fecha1, setFecha1] = useState('');
     const [fecha2, setFecha2] = useState('');
 
+    const esAdmin = (localStorage.getItem('usuarioRol') || '').toLowerCase().trim() === 'admin';
+
+    const anularVenta = async (venta: Movimiento) => {
+        const { value: motivo } = await Swal.fire({
+            title: `Anular venta #${venta.id}`,
+            html: `<p style="font-size:13px;color:#64748B">Se repondrá el stock y se revertirá la deuda del cliente si fue a crédito. Esta acción no se puede deshacer.</p>`,
+            input: 'text',
+            inputPlaceholder: 'Motivo de la anulación (obligatorio)',
+            showCancelButton: true,
+            confirmButtonColor: '#B91C1C',
+            cancelButtonColor: '#64748B',
+            confirmButtonText: 'Anular venta',
+            cancelButtonText: 'Volver',
+            inputValidator: (v) => (!v || v.trim().length < 3 ? 'Escribe el motivo (mínimo 3 letras).' : undefined),
+        });
+        if (!motivo) return;
+
+        try {
+            const res = await apiFetch(`${import.meta.env.VITE_API_URL}/ventas/${venta.id}/anular`, {
+                method: 'POST',
+                body: JSON.stringify({ motivo: motivo.trim() }),
+            });
+            if (!res.ok) throw new Error(await leerError(res, 'No se pudo anular la venta'));
+            const r = await res.json();
+            setVentaSeleccionada(null);
+            aplicarFiltro();
+            Swal.fire({ icon: 'success', title: `Venta #${venta.id} anulada`, text: r.aviso || '' });
+        } catch (e) {
+            Swal.fire('Error', e instanceof Error ? e.message : 'No se pudo anular la venta', 'error');
+        }
+    };
+
     const aplicarFiltro = () => {
         if (tipoFiltro === 'hoy') {
             cargarMovimientos();
         } else if (tipoFiltro === 'dia') {
-            if (!fecha1) return alert("Debe seleccionar una fecha válida.");
+            if (!fecha1) return Swal.fire('Atención', 'Debe seleccionar una fecha válida.', 'warning');
             cargarMovimientos(fecha1);
         } else if (tipoFiltro === 'periodo') {
-            if (!fecha1 || !fecha2) return alert("Debe seleccionar la fecha de inicio y de término.");
+            if (!fecha1 || !fecha2) return Swal.fire('Atención', 'Debe seleccionar la fecha de inicio y de término.', 'warning');
             cargarMovimientos(fecha1, fecha2);
         } else if (tipoFiltro === 'semana') {
             const { inicio, fin } = obtenerFechasSemana();
@@ -141,10 +175,13 @@ export const Movimientos = () => {
                                 </thead>
                                 <tbody className='divide-y divide-slate-100'>
                                     {movimientos.map((mov) => (
-                                        <tr key={mov.id} className="hover:bg-slate-50 transition-colors">
+                                        <tr key={mov.id} className={`hover:bg-slate-50 transition-colors ${mov.estado === 'ANULADA' ? 'bg-red-50/40 text-slate-400' : ''}`}>
                                             <td className='px-6 py-3.5 font-mono text-slate-500'>#{mov.id}</td>
-                                            <td className='px-6 py-3.5 font-semibold text-slate-900'>${mov.total.toLocaleString()}</td>
-                                            <td className='px-6 py-3.5 font-medium text-slate-700'>{mov.metodoPago}</td>
+                                            <td className={`px-6 py-3.5 font-semibold ${mov.estado === 'ANULADA' ? 'line-through text-slate-400' : 'text-slate-900'}`}>${mov.total.toLocaleString()}</td>
+                                            <td className='px-6 py-3.5 font-medium text-slate-700'>
+                                                {mov.metodoPago}
+                                                {mov.estado === 'ANULADA' && <span className="ml-2 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wider">ANULADA</span>}
+                                            </td>
                                             <td className='px-6 py-3.5 text-slate-500'>
                                                 {new Date(mov.fechaHora).toLocaleString()}
                                             </td>
@@ -174,6 +211,12 @@ export const Movimientos = () => {
                         </div>
                         
                         <div className="p-6">
+                            {ventaSeleccionada.estado === 'ANULADA' && (
+                                <div className="mb-4 p-3 rounded border border-red-200 bg-red-50 text-xs text-red-800">
+                                    <p className="font-semibold uppercase tracking-wider">Venta anulada</p>
+                                    <p className="mt-1">{ventaSeleccionada.motivoAnulacion || 'Sin motivo registrado'}{ventaSeleccionada.anuladaPor ? ` · por ${ventaSeleccionada.anuladaPor}` : ''}</p>
+                                </div>
+                            )}
                             <div className="space-y-3 max-h-[60vh] overflow-y-auto divide-y divide-slate-100 pr-1">
                                 {ventaSeleccionada.detalles.map((det) => {
                                     // ✨ NUEVO: Calculamos el precio real buscando en las propiedades más comunes
@@ -194,9 +237,28 @@ export const Movimientos = () => {
                                     );
                                 })}
                             </div>
+                            {ventaSeleccionada.pagos && ventaSeleccionada.pagos.length > 0 && (
+                                <div className="mt-4 pt-3 border-t border-slate-200">
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Formas de pago</p>
+                                    {ventaSeleccionada.pagos.map(pg => (
+                                        <div key={pg.id} className="flex justify-between text-slate-700">
+                                            <span>{pg.metodo}{pg.proveedorTarjeta ? ` (${pg.proveedorTarjeta})` : ''}{pg.referencia ? ` · ${pg.referencia}` : ''}</span>
+                                            <span className="font-mono font-semibold">${pg.monto.toLocaleString()}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {esAdmin && ventaSeleccionada.estado !== 'ANULADA' && (
+                                <button
+                                    onClick={() => anularVenta(ventaSeleccionada)}
+                                    className="w-full mt-4 bg-white hover:bg-red-50 text-red-700 border border-red-300 py-2 rounded font-medium transition-colors text-sm"
+                                >
+                                    Anular venta
+                                </button>
+                            )}
                             <button 
                                 onClick={() => setVentaSeleccionada(null)}
-                                className="w-full mt-6 bg-slate-800 hover:bg-slate-900 text-white py-2.5 rounded font-medium transition-colors"
+                                className="w-full mt-3 bg-slate-800 hover:bg-slate-900 text-white py-2.5 rounded font-medium transition-colors"
                             >
                                 Cerrar Ventana
                             </button>

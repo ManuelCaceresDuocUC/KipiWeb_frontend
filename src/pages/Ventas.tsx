@@ -34,7 +34,7 @@ export const Ventas = () => {
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [mostrarCamara, setMostrarCamara] = useState(false);
   const [menuAbierto, setMenuAbierto] = useState(false);
-const [metodoPagoAbono, setMetodoPagoAbono] = useState<'EFECTIVO' | 'TARJETA'>('EFECTIVO');
+
   // 1. Hooks de Negocio
   const { productos, cargarProductos } = useInventario(); 
   
@@ -42,8 +42,7 @@ const [metodoPagoAbono, setMetodoPagoAbono] = useState<'EFECTIVO' | 'TARJETA'>('
   const { 
     carrito, agregarAlCarrito, actualizarCantidad, totalVenta, 
     eliminarDelCarrito, confirmarVentaFinal, showModalPago, 
-    busqueda, setBusqueda, setShowModalPago, metodoPago, 
-    setMetodoPago, proveedorTarjeta, setProveedorTarjeta, 
+    busqueda, setBusqueda, setShowModalPago, pagos, setPagos, permiteFiado,
     clienteId, setClienteId 
   } = ventasContext;
 
@@ -66,6 +65,7 @@ const clientesContext = useClientesPos(setClienteId);
     showModalNuevoCliente, setShowModalNuevoCliente, nuevoCliente, setNuevoCliente,
     showModalConsultaCliente, setShowModalConsultaCliente, terminoBusquedaCliente, setTerminoBusquedaCliente,
     clienteConsultado, setClienteConsultado, montoAbono, setMontoAbono, cargandoConsultaCliente,
+    metodoPagoAbono, setMetodoPagoAbono,
     handleCrearCliente, handleBuscarClienteConsulta, handleAbonarDeuda, handleCambioRutNuevoCliente
   } = clientesContext;
 
@@ -207,7 +207,7 @@ const clientesContext = useClientesPos(setClienteId);
           iva={iva} 
           totalBruto={totalBruto} 
           carritoVacio={carrito.length === 0}
-          onProcesarCobro={() => setShowModalPago(true)} 
+          onProcesarCobro={() => { setPagos([{ metodo: 'EFECTIVO', monto: Math.round(totalBruto) }]); setShowModalPago(true); }} 
         />
       </div>
 
@@ -225,13 +225,12 @@ const clientesContext = useClientesPos(setClienteId);
       
       <ModalPago 
         show={showModalPago} 
-        onClose={() => { setShowModalPago(false); setPagaCon(0); setClienteId(null); }}
+        onClose={() => { setShowModalPago(false); setPagaCon(0); setClienteId(null); setPagos([]); }}
         empresaId={empresaId}
         totalBruto={totalBruto} 
-        metodoPago={metodoPago} 
-        setMetodoPago={setMetodoPago}
-        proveedorTarjeta={proveedorTarjeta} 
-        setProveedorTarjeta={setProveedorTarjeta}
+        pagos={pagos}
+        setPagos={setPagos}
+        permiteFiado={permiteFiado}
         clienteId={clienteId} 
         setClienteId={setClienteId} 
         pagaCon={pagaCon} 

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import Swal from 'sweetalert2';
 
 // Importación de los Custom Hooks
 import { useAdminPanel } from '../hooks/useAdminPanel';
@@ -8,6 +9,8 @@ import { useCategorias } from '../hooks/useCategorias';
 import { useNotas } from '../hooks/useNotas';
 
 import { getSesion } from '../helpers/session';
+import { apiFetch, leerError } from '../helpers/apiFetch';
+import { EstadoCuentaCliente } from '../components/EstadoCuentaCliente';
 // Interfaz para extender los campos opcionales/dinámicos de Cuadratura sin recurrir a 'any'
 interface CuadraturaExtendida {
   id: number | string;
@@ -60,6 +63,66 @@ export const Administracion = () => {
     notas, nuevaNota, setNuevaNota, 
     agregarNota, eliminarNota 
   } = useNotas(API_URL, empresaId);
+
+  // Fiado (venta a crédito) por empresa y edición del límite de cada cliente
+  const [permiteFiado, setPermiteFiado] = useState(false);
+  const [guardandoFiado, setGuardandoFiado] = useState(false);
+  const [clienteEstadoCuenta, setClienteEstadoCuenta] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (usuarioRol !== 'admin') return;
+    const cargar = async () => {
+      try {
+        const res = await apiFetch(`${API_URL}/empresa/config-ventas`);
+        if (res.ok) setPermiteFiado(Boolean((await res.json()).permiteFiado));
+      } catch (e) {
+        console.error('No se pudo leer la configuración de ventas', e);
+      }
+    };
+    cargar();
+  }, [API_URL, usuarioRol]);
+
+  const cambiarFiado = async (valor: boolean) => {
+    setGuardandoFiado(true);
+    try {
+      const res = await apiFetch(`${API_URL}/empresa/config-ventas`, {
+        method: 'PUT',
+        body: JSON.stringify({ permiteFiado: valor }),
+      });
+      if (!res.ok) throw new Error(await leerError(res, 'No se pudo guardar la configuración'));
+      setPermiteFiado(valor);
+    } catch (e) {
+      Swal.fire('Error', e instanceof Error ? e.message : 'No se pudo guardar la configuración', 'error');
+    } finally {
+      setGuardandoFiado(false);
+    }
+  };
+
+  const editarLimite = async (id: number, nombre: string, actual: number) => {
+    const { value } = await Swal.fire({
+      title: `Límite de crédito de ${nombre}`,
+      input: 'number',
+      inputValue: actual,
+      inputLabel: 'Con límite $0 el cliente no puede comprar a crédito.',
+      inputAttributes: { min: '0', step: '1000' },
+      showCancelButton: true,
+      confirmButtonColor: '#1E293B',
+      confirmButtonText: 'Guardar',
+      cancelButtonText: 'Cancelar',
+      inputValidator: (v) => (v === '' || Number(v) < 0 ? 'Ingresa un monto válido (0 o más).' : undefined),
+    });
+    if (value === undefined || value === '') return;
+    try {
+      const res = await apiFetch(`${API_URL}/clientes/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ limiteCredito: Number(value) }),
+      });
+      if (!res.ok) throw new Error(await leerError(res, 'No se pudo actualizar el límite'));
+      await abrirModalClientes(); // recarga el directorio
+    } catch (e) {
+      Swal.fire('Error', e instanceof Error ? e.message : 'No se pudo actualizar el límite', 'error');
+    }
+  };
 
   // 3. Estados y lógica específica de la vista que depende de los hooks
   const [filtroCuad, setFiltroCuad] = useState<'semana' | 'mes' | 'todas'>('semana');
@@ -437,6 +500,15 @@ export const Administracion = () => {
               Administración del directorio de clientes y reportes de deudores.
             </p>
             
+            <label className="flex items-start gap-3 mb-4 p-3 rounded border border-slate-200 bg-slate-50 cursor-pointer">
+              <input type="checkbox" className="mt-0.5 w-4 h-4" checked={permiteFiado} disabled={guardandoFiado}
+                onChange={(e) => cambiarFiado(e.target.checked)} />
+              <span className="text-sm text-slate-700">
+                <b>Permitir fiado (venta a crédito)</b>
+                <span className="block text-xs text-slate-500 mt-0.5">Cada cliente tiene su propio límite. Con límite $0 no puede comprar a crédito.</span>
+              </span>
+            </label>
+
             <div className="space-y-3">
               <button
                 onClick={handleCierreMesCreditos}
@@ -585,6 +657,7 @@ export const Administracion = () => {
                         <th className="p-3 text-right">Límite Crédito</th>
                         <th className="p-3 text-right">Deuda Actual</th>
                         <th className="p-3 text-center">Estado</th>
+                        <th className="p-3 text-center">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -609,11 +682,15 @@ export const Administracion = () => {
                               <span className="px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-xs font-semibold">Al Día</span>
                             )}
                           </td>
+                          <td className="p-3 text-center whitespace-nowrap">
+                            <button onClick={() => editarLimite(cliente.id, cliente.nombre, cliente.limiteCredito)} className="text-xs font-semibold text-slate-700 underline mr-3">Límite</button>
+                            <button onClick={() => setClienteEstadoCuenta(cliente.id)} className="text-xs font-semibold text-slate-700 underline">Estado de cuenta</button>
+                          </td>
                         </tr>
                       ))}
                       {clientesFiltrados.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="text-center p-8 text-slate-400">
+                          <td colSpan={7} className="text-center p-8 text-slate-400">
                             No se encontraron clientes que coincidan con la búsqueda.
                           </td>
                         </tr>
@@ -626,6 +703,9 @@ export const Administracion = () => {
 
           </div>
         </div>
+      )}
+      {clienteEstadoCuenta !== null && (
+        <EstadoCuentaCliente clienteId={clienteEstadoCuenta} onClose={() => setClienteEstadoCuenta(null)} />
       )}
     </div>
   );

@@ -12,11 +12,23 @@ export interface VentaDetalle {
     };
 }
 
+export interface PagoMovimiento {
+    id: number;
+    metodo: string;
+    monto: number;
+    proveedorTarjeta?: string | null;
+    referencia?: string | null;
+}
+
 export interface Movimiento { 
     id: number;
     total: number;
     metodoPago: string;
     fechaHora: string;
+    estado?: string | null;
+    motivoAnulacion?: string | null;
+    anuladaPor?: string | null;
+    pagos?: PagoMovimiento[];
     detalles: VentaDetalle[];
 }
 

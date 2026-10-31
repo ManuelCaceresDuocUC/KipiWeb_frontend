@@ -26,7 +26,7 @@ export const useClientesPos = (
   const [terminoBusquedaCliente, setTerminoBusquedaCliente] = useState('');
   const [clienteConsultado, setClienteConsultado] = useState<ClienteInfo | null>(null);
   const [montoAbono, setMontoAbono] = useState('');
-  const [metodoPagoAbono, setMetodoPagoAbono] = useState<'EFECTIVO' | 'TARJETA'>('EFECTIVO');
+  const [metodoPagoAbono, setMetodoPagoAbono] = useState<'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA'>('EFECTIVO');
   const [cargandoConsultaCliente, setCargandoConsultaCliente] = useState(false);
 
   const handleCambioRutNuevoCliente = (valorStr: string) => {

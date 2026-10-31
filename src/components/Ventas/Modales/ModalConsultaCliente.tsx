@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../../helpers/apiFetch';
 import type { ClienteInfo } from '../../../types/ventas.types';
+import { EstadoCuentaCliente } from '../../EstadoCuentaCliente';
 
 const formatearRutBusqueda = (termino: string) => {
   if (/[^0-9kK.\-\s]/i.test(termino)) {
@@ -32,8 +33,8 @@ interface Props {
   setClienteConsultado: (cliente: ClienteInfo | null) => void;
   montoAbono: string;
   setMontoAbono: (val: string) => void;
-  metodoPagoAbono: 'EFECTIVO' | 'TARJETA';
-  setMetodoPagoAbono: (val: 'EFECTIVO' | 'TARJETA') => void;
+  metodoPagoAbono: 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA';
+  setMetodoPagoAbono: (val: 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA') => void;
   handleAbonarDeuda: (e: React.FormEvent) => void;
 }
 
@@ -55,6 +56,7 @@ export const ModalConsultaCliente = ({
 }: Props) => {
   const [sugerencias, setSugerencias] = useState<ClienteInfo[]>([]);
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
+  const [verEstadoCuenta, setVerEstadoCuenta] = useState(false);
 
   useEffect(() => {
     const termino = terminoBusquedaCliente.trim();
@@ -181,7 +183,7 @@ export const ModalConsultaCliente = ({
                   <h3 className="font-bold text-slate-900 text-base">{clienteConsultado.nombre}</h3>
                   <p className="text-xs text-slate-500 font-mono">RUT: {clienteConsultado.rut} | ID: {clienteConsultado.id}</p>
                 </div>
-                <span className="text-xs bg-slate-200 text-slate-700 px-2 py-1 rounded font-semibold">Cliente Registrado</span>
+                <button type="button" onClick={() => setVerEstadoCuenta(true)} className="text-xs bg-slate-800 hover:bg-slate-900 text-white px-2.5 py-1 rounded font-semibold">Estado de cuenta</button>
               </div>
 
               <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-200 text-center font-mono">
@@ -219,10 +221,11 @@ export const ModalConsultaCliente = ({
                     <select
                       className="w-full p-2.5 rounded border border-slate-300 focus:border-slate-500 text-sm font-medium bg-white outline-none"
                       value={metodoPagoAbono}
-                      onChange={(e) => setMetodoPagoAbono(e.target.value as 'EFECTIVO' | 'TARJETA')}
+                      onChange={(e) => setMetodoPagoAbono(e.target.value as 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA')}
                     >
                       <option value="EFECTIVO">EFECTIVO</option>
                       <option value="TARJETA">TARJETA</option>
+                      <option value="TRANSFERENCIA">TRANSFERENCIA</option>
                     </select>
                   </div>
                 </div>
@@ -239,6 +242,9 @@ export const ModalConsultaCliente = ({
           </div>
         )}
       </div>
+      {verEstadoCuenta && clienteConsultado && (
+        <EstadoCuentaCliente clienteId={clienteConsultado.id} onClose={() => setVerEstadoCuenta(false)} />
+      )}
     </div>
   );
 };

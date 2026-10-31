@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { apiFetch, leerError } from "../helpers/apiFetch";
+import type { LineaPago } from "../types/ventas.types";
 
 export interface Producto {
   id: number;
@@ -16,21 +17,43 @@ export interface ItemCarrito extends Producto {
   subtotal: number;
 }
 
+const nuevaClave = () =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
 export const useVentas = (onVentaExitosa?: () => void) => {
-  const [metodoPago, setMetodoPago] = useState<"EFECTIVO" | "TARJETA" | "CREDITO" | "">("");
-  const [proveedorTarjeta, setProveedorTarjeta] = useState<"GETNET" | "MERCADOPAGO" | "TRANSBANK" | null>(null);
+  const [pagos, setPagos] = useState<LineaPago[]>([]);
   const [clienteId, setClienteId] = useState<number | null>(null);
   const [showModalPago, setShowModalPago] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
-  
+  const [permiteFiado, setPermiteFiado] = useState(false);
+
+  // Clave del intento de cobro: si la respuesta se pierde y el cajero reintenta, el servidor
+  // devuelve la venta ya registrada en vez de cobrarla dos veces. Cambia si cambia el carrito.
+  const claveRef = useRef<string | null>(null);
+  useEffect(() => { claveRef.current = null; }, [carrito]);
+
+  useEffect(() => {
+    const cargarConfig = async () => {
+      try {
+        const res = await apiFetch(`${import.meta.env.VITE_API_URL}/empresa/config-ventas`);
+        if (res.ok) setPermiteFiado(Boolean((await res.json()).permiteFiado));
+      } catch {
+        // Sin configuración se asume fiado apagado
+      }
+    };
+    cargarConfig();
+  }, []);
+
   // AGREGAR AL CARRITO
   const agregarAlCarrito = (producto: Producto) => {
     setCarrito(prev => {
       const existe = prev.find(p => p.id === producto.id);
       if (existe) {
-        return prev.map(p => 
-          p.id === producto.id 
+        return prev.map(p =>
+          p.id === producto.id
             ? { ...p, cantidad: p.cantidad + 1, subtotal: (p.cantidad + 1) * p.precio }
             : p
         );
@@ -48,7 +71,7 @@ export const useVentas = (onVentaExitosa?: () => void) => {
   const actualizarCantidad = (id: number, nuevaCantidad: number) => {
     setCarrito(prev => prev.map(p => {
       if (p.id === id) {
-        if (nuevaCantidad >= 1) { 
+        if (nuevaCantidad >= 1) {
           return { ...p, cantidad: nuevaCantidad, subtotal: nuevaCantidad * p.precio };
         }
       }
@@ -61,42 +84,58 @@ export const useVentas = (onVentaExitosa?: () => void) => {
   const vaciarCarrito = () => setCarrito([]);
 
   // CONFIRMAR VENTA FINAL
-const confirmarVentaFinal = async () => {
-    if (!metodoPago) return;
+  const confirmarVentaFinal = async () => {
+    const total = Math.round(totalVenta);
+    const suma = pagos.reduce((acc, l) => acc + l.monto, 0);
 
-    // Validación de tarjeta
-    if (metodoPago === 'TARJETA' && !proveedorTarjeta) {
+    if (pagos.length === 0) {
+      Swal.fire('Atención', 'Selecciona al menos una forma de pago', 'warning');
+      return;
+    }
+    if (pagos.some(l => !(l.monto > 0)) || suma !== total) {
+      Swal.fire('Atención', `Los pagos suman $${suma.toLocaleString('es-CL')} y el total es $${total.toLocaleString('es-CL')}`, 'warning');
+      return;
+    }
+    const tarjeta = pagos.find(l => l.metodo === 'TARJETA');
+    if (tarjeta && !tarjeta.proveedorTarjeta) {
       Swal.fire('Atención', 'Selecciona la terminal (Getnet, Mercado Pago o Transbank)', 'warning');
       return;
     }
-
-    // Validación de crédito
-    if (metodoPago === 'CREDITO' && !clienteId) {
-      Swal.fire('Atención', 'Debes seleccionar un cliente para generar un Vale de Crédito', 'warning');
+    const transferencia = pagos.find(l => l.metodo === 'TRANSFERENCIA');
+    if (transferencia && !transferencia.confirmado) {
+      Swal.fire('Atención', 'Confirma que recibiste la transferencia', 'warning');
+      return;
+    }
+    if (pagos.some(l => l.metodo === 'CREDITO') && !clienteId) {
+      Swal.fire('Atención', 'Debes seleccionar un cliente para vender a crédito', 'warning');
       return;
     }
 
     // El servidor toma empresa, cajero y sucursal del token y recalcula el total con sus precios.
-    // Solo se envía qué se vende, cuánto, y el total que el cajero está viendo (para detectar precios desactualizados).
+    // Solo se envía qué se vende, cuánto, cómo se paga y el total que el cajero está viendo.
+    if (!claveRef.current) claveRef.current = nuevaClave();
     const datosVenta = {
-      monto: Math.round(totalVenta),
+      monto: total,
       clienteId: clienteId ? Number(clienteId) : null,
-      items: carrito.map(p => ({
-        productoId: p.id,
-        cantidad: p.cantidad
-      }))
+      idempotencyKey: claveRef.current,
+      items: carrito.map(p => ({ productoId: p.id, cantidad: p.cantidad })),
+      pagos: pagos.map(l => ({
+        metodo: l.metodo,
+        monto: l.monto,
+        proveedorTarjeta: l.metodo === 'TARJETA' ? l.proveedorTarjeta : null,
+        referencia: l.referencia?.trim() || null,
+        confirmado: l.metodo === 'TRANSFERENCIA' ? true : undefined,
+      })),
     };
 
     try {
-      let respuestaBackend;
-
-      if (metodoPago === 'TARJETA') {
-        // 1️⃣ MODAL DE ESPERA / CONFIRMACIÓN MANUAL
+      if (tarjeta) {
+        // Espera de confirmación manual del cobro en la máquina física
         const confirmacionPOS = await Swal.fire({
-          title: `Cobro en Máquina (${proveedorTarjeta})`,
+          title: `Cobro en Máquina (${tarjeta.proveedorTarjeta})`,
           html: `
             <p style="font-size: 1.2rem; font-weight: bold; margin-bottom: 10px;">
-              Monto a cobrar: $${datosVenta.monto.toLocaleString('es-CL')}
+              Monto a cobrar: $${tarjeta.monto.toLocaleString('es-CL')}
             </p>
             <p style="color: #64748b;">
               Pase la tarjeta en la máquina física. Cuando la pantalla de la máquina indique <b>APROBADO</b>, confirme la operación aquí abajo.
@@ -104,72 +143,31 @@ const confirmarVentaFinal = async () => {
           `,
           icon: 'info',
           showCancelButton: true,
-          confirmButtonColor: '#10B981', // Verde éxito
-          cancelButtonColor: '#EF4444',  // Rojo rechazo
+          confirmButtonColor: '#10B981',
+          cancelButtonColor: '#EF4444',
           confirmButtonText: '✓ Pago Aprobado en Máquina',
           cancelButtonText: '✕ Cancelar / Rechazado',
           allowOutsideClick: false
         });
-
-        // Si el pago falló en la maquinita o el cajero cancela
         if (!confirmacionPOS.isConfirmed) {
           Swal.fire('Venta no registrada', 'El cobro no fue confirmado.', 'info');
           return;
         }
-
-        // 2️⃣ Muestra el spinner de carga mientras guarda en la nube
-        Swal.fire({
-          title: 'Procesando Venta...',
-          text: 'Guardando registro y emitiendo boleta',
-          allowOutsideClick: false,
-          didOpen: () => Swal.showLoading()
-        });
-
-        // 3️⃣ Guarda directo en AWS
-        const urlAws = `${import.meta.env.VITE_API_URL}/pagos/cobrar`; 
-        const resAws = await apiFetch(urlAws, {
-          method: 'POST',
-          body: JSON.stringify(datosVenta)
-        });
-
-        if (!resAws.ok) {
-          throw new Error(await leerError(resAws, "Fallo al guardar la venta tras confirmar el cobro con tarjeta"));
-        }
-        respuestaBackend = await resAws.json();
-
-      } else if (metodoPago === 'CREDITO') {
-        Swal.fire({
-          title: 'Procesando...',
-          text: 'Generando vale e imprimiendo...',
-          allowOutsideClick: false,
-          didOpen: () => Swal.showLoading()
-        });
-
-        const res = await apiFetch(`${import.meta.env.VITE_API_URL}/pagos/credito`, {
-          method: 'POST',
-          body: JSON.stringify(datosVenta)
-        });
-
-        if (!res.ok) throw new Error(await leerError(res, "Error al registrar el vale de crédito"));
-        respuestaBackend = await res.json();
-
-      } else {
-        // Efectivo
-        Swal.fire({
-          title: 'Procesando...',
-          text: 'Registrando venta...',
-          allowOutsideClick: false,
-          didOpen: () => Swal.showLoading()
-        });
-
-        const res = await apiFetch(`${import.meta.env.VITE_API_URL}/pagos/efectivo`, {
-          method: 'POST',
-          body: JSON.stringify(datosVenta)
-        });
-
-        if (!res.ok) throw new Error(await leerError(res, "Error al procesar el pago"));
-        respuestaBackend = await res.json();
       }
+
+      Swal.fire({
+        title: 'Procesando Venta...',
+        text: 'Guardando registro y emitiendo boleta',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL}/pagos/venta`, {
+        method: 'POST',
+        body: JSON.stringify(datosVenta)
+      });
+      if (!res.ok) throw new Error(await leerError(res, "Error al procesar el pago"));
+      const respuestaBackend = await res.json();
 
       // Si el servidor devuelve un PDF en base64 para descargar localmente en navegador
       if (respuestaBackend?.boletaPdf) {
@@ -180,29 +178,32 @@ const confirmarVentaFinal = async () => {
         downloadLink.click();
       }
 
-      Swal.fire({ 
-        title: metodoPago === 'CREDITO' ? '¡Vale de Crédito Emitido!' : '¡Venta Completada!', 
-        text: metodoPago === 'CREDITO' ? 'El vale ha sido guardado e imprimiéndose en el terminal.' : '',
-        icon: 'success', 
-        timer: 2500 
+      const duplicada = respuestaBackend?.status === 'duplicate';
+      const hayCredito = pagos.some(l => l.metodo === 'CREDITO');
+      Swal.fire({
+        title: duplicada ? 'Venta ya registrada' : (hayCredito ? '¡Venta a Crédito Registrada!' : '¡Venta Completada!'),
+        text: duplicada ? respuestaBackend.message : '',
+        icon: duplicada ? 'info' : 'success',
+        timer: duplicada ? undefined : 2500
       });
 
       // Limpieza de estados
+      claveRef.current = null;
       setCarrito([]);
       setShowModalPago(false);
-      setMetodoPago("");
-      setProveedorTarjeta(null); 
+      setPagos([]);
       setClienteId(null);
       setBusqueda("");
 
       if (onVentaExitosa) onVentaExitosa();
 
     } catch (err: unknown) {
+      // La clave se conserva a propósito: si la venta sí se guardó y solo se perdió la respuesta, el reintento no cobra doble
       const msg = err instanceof Error ? err.message : "Error inesperado";
       Swal.fire('Error en la venta', msg, 'error');
     }
   };
-  
+
   return {
     carrito,
     setCarrito,
@@ -216,10 +217,9 @@ const confirmarVentaFinal = async () => {
     setShowModalPago,
     busqueda,
     setBusqueda,
-    metodoPago,
-    setMetodoPago,
-    proveedorTarjeta,
-    setProveedorTarjeta,
+    pagos,
+    setPagos,
+    permiteFiado,
     clienteId,
     setClienteId
   };

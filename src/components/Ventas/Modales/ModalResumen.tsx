@@ -56,6 +56,11 @@ export const ModalResumen = ({ show, onClose, cargandoResumen, datosResumen }: P
             </div>
 
             <div className="flex justify-between border-b border-slate-100 pb-1.5 mt-1">
+              <span className="font-sans">Transferencias:</span>
+              <span className="font-semibold text-slate-800">+ ${(datosResumen.ventasTransferencia || 0).toLocaleString()}</span>
+            </div>
+
+            <div className="flex justify-between border-b border-slate-100 pb-1.5 mt-1">
               <span className="font-sans">Ventas a Crédito (Vales Emitidos):</span>
               <span className="font-semibold text-slate-800">+ ${(datosResumen.ventasCredito || 0).toLocaleString()}</span>
             </div>
@@ -65,7 +70,7 @@ export const ModalResumen = ({ show, onClose, cargandoResumen, datosResumen }: P
                 Venta Total Acumulada
               </span>
               <span className="font-bold text-slate-900">
-                ${((datosResumen.ventasEfectivo || 0) + (datosResumen.ventasTarjeta || 0) + (datosResumen.ventasCredito || 0)).toLocaleString()}
+                ${((datosResumen.ventasEfectivo || 0) + (datosResumen.ventasTarjeta || 0) + (datosResumen.ventasTransferencia || 0) + (datosResumen.ventasCredito || 0)).toLocaleString()}
               </span>
             </div>
 
