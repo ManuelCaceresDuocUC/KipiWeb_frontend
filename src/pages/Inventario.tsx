@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Swal from 'sweetalert2';
 import { LectorCamara } from '../components/LectorCamara';
 import { useNavigate } from 'react-router-dom'; 
-import { apiFetch } from '../helpers/apiFetch';
+import { apiFetch, leerError } from '../helpers/apiFetch';
+import { PanelStockSucursal } from '../components/PanelStockSucursal';
 
 interface ItemRecetaLocal {
   insumoId: number;
@@ -45,6 +46,9 @@ export const Inventario = () => {
     productosFiltrados,
     busqueda,
     setBusqueda,
+    sucursalId,
+    setSucursalId,
+    cargarProductos,
   } = useInventario();
 
   const productosRef = useRef<Producto[]>([]);
@@ -90,6 +94,7 @@ export const Inventario = () => {
     descripcion: '',
     precio: '',
     stock: '',
+    costo: '',
     stockCritico: '',
     esInsumo: true,
     unidadMedida: 'UN',
@@ -118,44 +123,61 @@ export const Inventario = () => {
 
   // 1. Manejo de stock declarado ANTES de ser referenciado
   const manejarEntradaStock = useCallback(async (producto: Producto) => {
-    const { value: cantidad } = await Swal.fire({
-      title: `Ajuste de Stock: ${producto.descripcion}`,
-      input: 'number',
-      inputLabel: `Ingrese la cantidad a ajustar (use signo "-" para restar). Unidad: ${producto.unidadMedida}`,
-      inputPlaceholder: 'Ej: 10 o -5',
+    const { value: datos } = await Swal.fire<{ tipo: string; cantidad: number; motivo: string }>({
+      title: `Stock: ${producto.descripcion}`,
+      html:
+        `<p style="font-size:13px;color:#64748B;margin-bottom:8px">Stock actual en esta sucursal: <b>${producto.stock} ${producto.unidadMedida}</b></p>` +
+        `<select id="sw-tipo" class="swal2-select" style="width:90%;margin:6px auto">` +
+        `<option value="ENTRADA">Entrada (compra / reposición)</option>` +
+        `<option value="MERMA">Merma (pérdida, vencimiento)</option>` +
+        `<option value="AJUSTE">Conteo físico (fijar stock real)</option>` +
+        `</select>` +
+        `<input id="sw-cant" type="number" step="0.01" min="0" class="swal2-input" placeholder="Cantidad (${producto.unidadMedida})">` +
+        `<input id="sw-motivo" class="swal2-input" placeholder="Motivo (obligatorio en merma y conteo)">`,
+      focusConfirm: false,
       showCancelButton: true,
       confirmButtonColor: '#1E293B',
       cancelButtonColor: '#64748B',
-      confirmButtonText: 'Aplicar ajuste',
+      confirmButtonText: 'Aplicar',
       cancelButtonText: 'Cancelar',
-      inputAttributes: { step: '0.01' },
-      inputValidator: (value) => {
-        if (!value || Number(value) === 0 || isNaN(Number(value))) {
-          return 'Debe ingresar un valor numérico distinto de cero.';
+      preConfirm: () => {
+        const tipo = (document.getElementById('sw-tipo') as HTMLSelectElement).value;
+        const cantidadTxt = (document.getElementById('sw-cant') as HTMLInputElement).value;
+        const motivo = (document.getElementById('sw-motivo') as HTMLInputElement).value.trim();
+        const cantidad = Number(cantidadTxt);
+        if (cantidadTxt === '' || isNaN(cantidad) || cantidad < 0 || (tipo !== 'AJUSTE' && cantidad === 0)) {
+          Swal.showValidationMessage('Ingresa una cantidad válida.');
+          return undefined;
         }
-      }
+        if ((tipo === 'MERMA' || tipo === 'AJUSTE') && motivo === '') {
+          Swal.showValidationMessage('El motivo es obligatorio para mermas y conteos físicos.');
+          return undefined;
+        }
+        return { tipo, cantidad, motivo };
+      },
     });
 
-    if (cantidad) {
-      try {
-        const numCantidad = Number(cantidad);
-        const nuevoStock = producto.stock + numCantidad;
+    if (!datos) return;
 
-        await editarProducto(producto.id, { ...producto, stock: nuevoStock });
-
-        const accion = numCantidad > 0 ? 'adicionado' : 'descontado';
-        const cantidadAbsoluta = Math.abs(numCantidad);
-
-        Swal.fire(
-          'Registro Actualizado',
-          `Se han ${accion} ${cantidadAbsoluta} unidades en el inventario de ${producto.descripcion}.`,
-          'success'
-        );
-      } catch {
-        Swal.fire('Error', 'No se pudo actualizar el registro en el inventario.', 'error');
-      }
+    try {
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL}/inventario/movimientos`, {
+        method: 'POST',
+        body: JSON.stringify({
+          productoId: producto.id,
+          tipo: datos.tipo,
+          cantidad: datos.cantidad,
+          motivo: datos.motivo || null,
+          sucursalId: sucursalId,
+        }),
+      });
+      if (!res.ok) throw new Error(await leerError(res, 'No se pudo registrar el movimiento'));
+      const r = await res.json();
+      await cargarProductos(sucursalId);
+      Swal.fire('Registrado', `Nuevo stock de ${producto.descripcion}: ${r.stock} ${producto.unidadMedida}.`, 'success');
+    } catch (err) {
+      Swal.fire('Error', err instanceof Error ? err.message : 'No se pudo registrar el movimiento.', 'error');
     }
-  }, [editarProducto]);
+  }, [sucursalId, cargarProductos]);
 
   // 2. Procesador envuelto en useCallback para mantener la referencia estable
   const procesarCodigoEscaneadoBusqueda = useCallback((codigo: string) => {
@@ -177,6 +199,7 @@ export const Inventario = () => {
         descripcion: '',
         precio: '',
         stock: '',
+        costo: '',
         stockCritico: '',
         esInsumo: false,
         unidadMedida: 'UN',
@@ -247,6 +270,7 @@ export const Inventario = () => {
       descripcion: producto.descripcion,
       precio: producto.precio.toString(),
       stock: producto.stock.toString(),
+      costo: producto.costo != null ? producto.costo.toString() : '',
       stockCritico: producto.stockCritico.toString(),
       esInsumo: producto.esInsumo ?? true,
       unidadMedida: producto.unidadMedida,
@@ -269,7 +293,7 @@ export const Inventario = () => {
     setEditandoId(null);
     setListaIngredientesSeleccionados([]);
     setForm({ 
-      codigoBarras: '', descripcion: '', precio: '', stock: '', 
+      codigoBarras: '', descripcion: '', precio: '', stock: '', costo: '',
       stockCritico: '', esInsumo: true, unidadMedida: 'UN', categoriaId: ''
     });
   };
@@ -293,6 +317,7 @@ export const Inventario = () => {
       descripcion: form.descripcion,
       precio: Number(form.precio),
       stock: Number(form.stock),
+      costo: form.costo === '' ? null : Number(form.costo),
       stockCritico: Number(form.stockCritico),
       esInsumo: form.esInsumo,
       unidadMedida: form.unidadMedida,
@@ -319,6 +344,8 @@ export const Inventario = () => {
         <h1 className='text-3xl font-semibold text-slate-900 tracking-tight'>Gestión de Inventario</h1>
         <p className="text-slate-500 text-sm mt-1">Control de stock, insumos y productos para venta.</p>
       </div>
+
+      <PanelStockSucursal sucursalId={sucursalId} onCambiarSucursal={setSucursalId} />
 
       <div className='w-full max-w-6xl mb-6 space-y-4'>
         <div className="flex gap-3">
@@ -473,7 +500,7 @@ export const Inventario = () => {
 
               <div className='grid grid-cols-2 gap-2'>
                 <div className='flex border border-slate-300 rounded overflow-hidden focus-within:border-slate-500'>
-                  <input type="number" step="0.01" className='w-full p-2.5 outline-none' placeholder="Stock Inicial" value={form.stock} onChange={(e)=> setForm({...form, stock: e.target.value})} />
+                  <input type="number" step="0.01" className={`w-full p-2.5 outline-none ${editandoId ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}`} placeholder="Stock Inicial" title={editandoId ? 'Para cambiar el stock usa "Ajustar Stock"' : 'Stock inicial en tu sucursal'} value={form.stock} readOnly={!!editandoId} onChange={(e)=> setForm({...form, stock: e.target.value})} />
                   <select className='bg-slate-100 px-2 text-xs font-semibold outline-none cursor-pointer border-l border-slate-300 text-slate-700' value={form.unidadMedida || ""} onChange={(e) => setForm({ ...form, unidadMedida: e.target.value })}>
                     <option value="UN">UN</option>
                     <option value="KG">KG</option>
@@ -482,6 +509,8 @@ export const Inventario = () => {
                 </div>
                 <input type="number" placeholder="Precio ($)" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.precio} onChange={(e)=> setForm({...form, precio: e.target.value})} />
               </div>
+
+              <input type="number" step="0.01" placeholder="Costo unitario ($, opcional)" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.costo} onChange={(e)=> setForm({...form, costo: e.target.value})} />
 
               <input type="number" placeholder="Límite de Stock Crítico" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.stockCritico} onChange={(e)=> setForm({...form, stockCritico: e.target.value})} />
 

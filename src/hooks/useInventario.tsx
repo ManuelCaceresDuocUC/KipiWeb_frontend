@@ -8,6 +8,7 @@ export interface Producto {
     descripcion: string;
     precio: number;
     stock: number;
+    costo?: number | null;
     stockCritico: number;
     esInsumo: boolean;
     unidadMedida: string;
@@ -38,13 +39,16 @@ export const useInventario = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [busqueda, setBusqueda] = useState('');
+    // Sucursal cuyo stock se muestra (solo admin). null = la sucursal propia del usuario.
+    const [sucursalId, setSucursalId] = useState<number | null>(null);
 
     const API_URL = `${import.meta.env.VITE_API_URL}/productos`;
 
-    const cargarProductos = async () => {
+    const cargarProductos = async (sucursal: number | null = sucursalId) => {
         try {
             setLoading(true);
-            const urlConEmpresa = `${API_URL}?size=2000`; // la empresa la define el token en el servidor
+            // la empresa la define el token en el servidor; el stock es el de la sucursal indicada
+            const urlConEmpresa = `${API_URL}?size=2000${sucursal ? `&sucursalId=${sucursal}` : ''}`;
             
             // ✨ 2. Uso de apiFetch en la lectura
             const respuesta = await apiFetch(urlConEmpresa); 
@@ -65,8 +69,9 @@ export const useInventario = () => {
     };   
 
     useEffect(() => {
-        cargarProductos();
-    }, []);
+        cargarProductos(sucursalId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sucursalId]);
 
     const eliminarProducto = async (id: number) => {
         const result = await Swal.fire({
@@ -116,7 +121,7 @@ export const useInventario = () => {
                 throw new Error(await leerError(res, "Error en el servidor"));
             }
 
-            await cargarProductos(); 
+            await cargarProductos(sucursalId); 
             Swal.fire('Guardado', 'Producto y receta registrados con éxito', 'success');
         } catch (err: unknown) {
             console.error("Error al agregar:", err);
@@ -134,7 +139,7 @@ export const useInventario = () => {
             if (!res.ok) throw new Error("Error al actualizar en el servidor");
             
             // 🟢 Re-cargamos la lista completa para reflejar relaciones/categorías actualizadas desde la base de datos
-            await cargarProductos();
+            await cargarProductos(sucursalId);
             
             Swal.fire('¡Éxito!', 'Producto actualizado correctamente', 'success');
         } catch (err: unknown) {
@@ -164,6 +169,8 @@ export const useInventario = () => {
         productosFiltrados,
         busqueda,
         setBusqueda,
+        sucursalId,
+        setSucursalId,
         productos,
         loading, 
         error,
@@ -172,6 +179,6 @@ export const useInventario = () => {
         agregarProducto,
         editarProducto,
         obtenerStockVisual,
-        refrescar: cargarProductos 
+        refrescar: () => cargarProductos(sucursalId)
     };
 };

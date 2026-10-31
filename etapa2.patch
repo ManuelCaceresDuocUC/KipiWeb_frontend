@@ -1,0 +1,461 @@
+diff --git a/src/components/PanelStockSucursal.tsx b/src/components/PanelStockSucursal.tsx
+new file mode 100644
+index 0000000..750eed7
+--- /dev/null
++++ b/src/components/PanelStockSucursal.tsx
+@@ -0,0 +1,192 @@
++import { useEffect, useState } from 'react';
++import Swal from 'sweetalert2';
++import { apiFetch, leerError } from '../helpers/apiFetch';
++
++interface SucursalInv {
++  id: number;
++  nombre: string;
++  esCasaMatriz: boolean;
++  propia: boolean;
++}
++
++interface MovimientoFila {
++  id: number;
++  fecha: string;
++  tipo: string;
++  cantidad: number;
++  stockResultante: number;
++  motivo?: string | null;
++  producto: string;
++  sucursal: string;
++  usuario?: string | null;
++}
++
++interface Props {
++  sucursalId: number | null;
++  onCambiarSucursal: (id: number | null) => void;
++}
++
++const API = import.meta.env.VITE_API_URL;
++
++/** Selector de sucursal, política de stock negativo e historial de movimientos (solo admin). */
++export const PanelStockSucursal = ({ sucursalId, onCambiarSucursal }: Props) => {
++  const [sucursales, setSucursales] = useState<SucursalInv[]>([]);
++  const [permiteNegativo, setPermiteNegativo] = useState(true);
++  const [guardando, setGuardando] = useState(false);
++  const [verHistorial, setVerHistorial] = useState(false);
++  const [movimientos, setMovimientos] = useState<MovimientoFila[]>([]);
++  const [pagina, setPagina] = useState(0);
++  const [totalPaginas, setTotalPaginas] = useState(0);
++  const [cargandoHist, setCargandoHist] = useState(false);
++
++  useEffect(() => {
++    const cargar = async () => {
++      try {
++        const [rs, rc] = await Promise.all([
++          apiFetch(`${API}/inventario/sucursales`),
++          apiFetch(`${API}/inventario/configuracion`),
++        ]);
++        if (rs.ok) setSucursales(await rs.json());
++        if (rc.ok) setPermiteNegativo((await rc.json()).permiteStockNegativo !== false);
++      } catch (e) {
++        console.error('No se pudo cargar la configuración de inventario', e);
++      }
++    };
++    cargar();
++  }, []);
++
++  const sucursalActual = sucursalId ?? sucursales.find(s => s.propia)?.id ?? null;
++
++  const cambiarPolitica = async (valor: boolean) => {
++    setGuardando(true);
++    try {
++      const res = await apiFetch(`${API}/inventario/configuracion`, {
++        method: 'PUT',
++        body: JSON.stringify({ permiteStockNegativo: valor }),
++      });
++      if (!res.ok) throw new Error(await leerError(res, 'No se pudo guardar la configuración'));
++      setPermiteNegativo(valor);
++    } catch (e) {
++      Swal.fire('Error', e instanceof Error ? e.message : 'No se pudo guardar la configuración', 'error');
++    } finally {
++      setGuardando(false);
++    }
++  };
++
++  const cargarHistorial = async (pag: number) => {
++    setCargandoHist(true);
++    try {
++      const params = new URLSearchParams({ page: String(pag), size: '30' });
++      if (sucursalActual) params.set('sucursalId', String(sucursalActual));
++      const res = await apiFetch(`${API}/inventario/movimientos?${params.toString()}`);
++      if (!res.ok) throw new Error(await leerError(res, 'No se pudo cargar el historial'));
++      const data = await res.json();
++      setMovimientos(data.content ?? []);
++      setTotalPaginas(data.totalPages ?? 0);
++      setPagina(pag);
++    } catch (e) {
++      Swal.fire('Error', e instanceof Error ? e.message : 'No se pudo cargar el historial', 'error');
++    } finally {
++      setCargandoHist(false);
++    }
++  };
++
++  const abrirHistorial = () => {
++    setVerHistorial(true);
++    cargarHistorial(0);
++  };
++
++  const colorTipo = (tipo: string) =>
++    tipo === 'VENTA' || tipo === 'MERMA' ? 'text-red-600' : tipo === 'ENTRADA' || tipo === 'INICIAL' ? 'text-green-700' : 'text-slate-700';
++
++  return (
++    <>
++      <div className="w-full max-w-6xl mb-4 flex flex-col md:flex-row md:items-center gap-3 bg-white p-3 rounded shadow-sm border border-slate-200 text-sm">
++        <label className="flex items-center gap-2 text-slate-700 font-medium">
++          Sucursal
++          <select
++            className="p-2 rounded border border-slate-300 bg-white outline-none focus:border-slate-500 cursor-pointer"
++            value={sucursalActual ?? ''}
++            onChange={(e) => onCambiarSucursal(e.target.value ? Number(e.target.value) : null)}
++          >
++            {sucursales.map(s => (
++              <option key={s.id} value={s.id}>
++                {s.nombre}{s.esCasaMatriz ? ' (Casa matriz)' : ''}{s.propia ? ' · mía' : ''}
++              </option>
++            ))}
++          </select>
++        </label>
++
++        <label className="flex items-center gap-2 text-slate-700 md:ml-auto cursor-pointer">
++          <input
++            type="checkbox"
++            className="w-4 h-4"
++            checked={permiteNegativo}
++            disabled={guardando}
++            onChange={(e) => cambiarPolitica(e.target.checked)}
++          />
++          Permitir vender sin stock (stock negativo)
++        </label>
++
++        <button
++          onClick={abrirHistorial}
++          className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded font-medium text-xs border border-slate-300 transition-colors"
++        >
++          Historial de movimientos
++        </button>
++      </div>
++
++      {verHistorial && (
++        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
++          <div className="w-full max-w-4xl bg-white p-5 rounded shadow-lg border border-slate-200 max-h-[90vh] overflow-y-auto text-sm">
++            <div className="flex justify-between items-center border-b border-slate-100 pb-2 mb-3">
++              <h2 className="text-lg font-semibold text-slate-900">Historial de movimientos</h2>
++              <button onClick={() => setVerHistorial(false)} className="text-slate-500 hover:text-slate-800 text-xl leading-none">×</button>
++            </div>
++            {cargandoHist ? (
++              <p className="py-6 text-center text-slate-400">Cargando…</p>
++            ) : movimientos.length === 0 ? (
++              <p className="py-6 text-center text-slate-400">Sin movimientos registrados.</p>
++            ) : (
++              <div className="overflow-x-auto">
++                <table className="w-full text-left">
++                  <thead className="text-xs uppercase text-slate-500 border-b border-slate-200">
++                    <tr>
++                      <th className="py-2 pr-3">Fecha</th>
++                      <th className="py-2 pr-3">Producto</th>
++                      <th className="py-2 pr-3">Tipo</th>
++                      <th className="py-2 pr-3">Cantidad</th>
++                      <th className="py-2 pr-3">Stock result.</th>
++                      <th className="py-2 pr-3">Motivo</th>
++                      <th className="py-2">Usuario</th>
++                    </tr>
++                  </thead>
++                  <tbody className="divide-y divide-slate-100">
++                    {movimientos.map(m => (
++                      <tr key={m.id}>
++                        <td className="py-2 pr-3 whitespace-nowrap text-slate-500">{m.fecha}</td>
++                        <td className="py-2 pr-3 font-medium text-slate-800">{m.producto}</td>
++                        <td className={`py-2 pr-3 font-semibold ${colorTipo(m.tipo)}`}>{m.tipo}</td>
++                        <td className={`py-2 pr-3 ${m.cantidad < 0 ? 'text-red-600' : 'text-green-700'}`}>{m.cantidad > 0 ? `+${m.cantidad}` : m.cantidad}</td>
++                        <td className="py-2 pr-3">{m.stockResultante}</td>
++                        <td className="py-2 pr-3 text-slate-600">{m.motivo || '—'}</td>
++                        <td className="py-2 text-slate-600">{m.usuario || '—'}</td>
++                      </tr>
++                    ))}
++                  </tbody>
++                </table>
++              </div>
++            )}
++            {totalPaginas > 1 && (
++              <div className="flex justify-between items-center mt-4">
++                <button disabled={pagina === 0} onClick={() => cargarHistorial(pagina - 1)} className="px-3 py-1.5 rounded border border-slate-300 disabled:opacity-40">Anterior</button>
++                <span className="text-slate-500">Página {pagina + 1} de {totalPaginas}</span>
++                <button disabled={pagina + 1 >= totalPaginas} onClick={() => cargarHistorial(pagina + 1)} className="px-3 py-1.5 rounded border border-slate-300 disabled:opacity-40">Siguiente</button>
++              </div>
++            )}
++          </div>
++        </div>
++      )}
++    </>
++  );
++};
+diff --git a/src/hooks/useInventario.tsx b/src/hooks/useInventario.tsx
+index 8f4445a..de4e8a4 100644
+--- a/src/hooks/useInventario.tsx
++++ b/src/hooks/useInventario.tsx
+@@ -8,6 +8,7 @@ export interface Producto {
+     descripcion: string;
+     precio: number;
+     stock: number;
++    costo?: number | null;
+     stockCritico: number;
+     esInsumo: boolean;
+     unidadMedida: string;
+@@ -38,13 +39,16 @@ export const useInventario = () => {
+     const [loading, setLoading] = useState(true);
+     const [error, setError] = useState<string | null>(null);
+     const [busqueda, setBusqueda] = useState('');
++    // Sucursal cuyo stock se muestra (solo admin). null = la sucursal propia del usuario.
++    const [sucursalId, setSucursalId] = useState<number | null>(null);
+ 
+     const API_URL = `${import.meta.env.VITE_API_URL}/productos`;
+ 
+-    const cargarProductos = async () => {
++    const cargarProductos = async (sucursal: number | null = sucursalId) => {
+         try {
+             setLoading(true);
+-            const urlConEmpresa = `${API_URL}?size=2000`; // la empresa la define el token en el servidor
++            // la empresa la define el token en el servidor; el stock es el de la sucursal indicada
++            const urlConEmpresa = `${API_URL}?size=2000${sucursal ? `&sucursalId=${sucursal}` : ''}`;
+             
+             // ✨ 2. Uso de apiFetch en la lectura
+             const respuesta = await apiFetch(urlConEmpresa); 
+@@ -65,8 +69,9 @@ export const useInventario = () => {
+     };   
+ 
+     useEffect(() => {
+-        cargarProductos();
+-    }, []);
++        cargarProductos(sucursalId);
++        // eslint-disable-next-line react-hooks/exhaustive-deps
++    }, [sucursalId]);
+ 
+     const eliminarProducto = async (id: number) => {
+         const result = await Swal.fire({
+@@ -116,7 +121,7 @@ export const useInventario = () => {
+                 throw new Error(await leerError(res, "Error en el servidor"));
+             }
+ 
+-            await cargarProductos(); 
++            await cargarProductos(sucursalId); 
+             Swal.fire('Guardado', 'Producto y receta registrados con éxito', 'success');
+         } catch (err: unknown) {
+             console.error("Error al agregar:", err);
+@@ -134,7 +139,7 @@ export const useInventario = () => {
+             if (!res.ok) throw new Error("Error al actualizar en el servidor");
+             
+             // 🟢 Re-cargamos la lista completa para reflejar relaciones/categorías actualizadas desde la base de datos
+-            await cargarProductos();
++            await cargarProductos(sucursalId);
+             
+             Swal.fire('¡Éxito!', 'Producto actualizado correctamente', 'success');
+         } catch (err: unknown) {
+@@ -164,6 +169,8 @@ export const useInventario = () => {
+         productosFiltrados,
+         busqueda,
+         setBusqueda,
++        sucursalId,
++        setSucursalId,
+         productos,
+         loading, 
+         error,
+@@ -172,6 +179,6 @@ export const useInventario = () => {
+         agregarProducto,
+         editarProducto,
+         obtenerStockVisual,
+-        refrescar: cargarProductos 
++        refrescar: () => cargarProductos(sucursalId)
+     };
+ };
+\ No newline at end of file
+diff --git a/src/pages/Inventario.tsx b/src/pages/Inventario.tsx
+index 1e3bc1b..ae1d091 100644
+--- a/src/pages/Inventario.tsx
++++ b/src/pages/Inventario.tsx
+@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
+ import Swal from 'sweetalert2';
+ import { LectorCamara } from '../components/LectorCamara';
+ import { useNavigate } from 'react-router-dom'; 
+-import { apiFetch } from '../helpers/apiFetch';
++import { apiFetch, leerError } from '../helpers/apiFetch';
++import { PanelStockSucursal } from '../components/PanelStockSucursal';
+ 
+ interface ItemRecetaLocal {
+   insumoId: number;
+@@ -45,6 +46,9 @@ export const Inventario = () => {
+     productosFiltrados,
+     busqueda,
+     setBusqueda,
++    sucursalId,
++    setSucursalId,
++    cargarProductos,
+   } = useInventario();
+ 
+   const productosRef = useRef<Producto[]>([]);
+@@ -90,6 +94,7 @@ export const Inventario = () => {
+     descripcion: '',
+     precio: '',
+     stock: '',
++    costo: '',
+     stockCritico: '',
+     esInsumo: true,
+     unidadMedida: 'UN',
+@@ -118,44 +123,61 @@ export const Inventario = () => {
+ 
+   // 1. Manejo de stock declarado ANTES de ser referenciado
+   const manejarEntradaStock = useCallback(async (producto: Producto) => {
+-    const { value: cantidad } = await Swal.fire({
+-      title: `Ajuste de Stock: ${producto.descripcion}`,
+-      input: 'number',
+-      inputLabel: `Ingrese la cantidad a ajustar (use signo "-" para restar). Unidad: ${producto.unidadMedida}`,
+-      inputPlaceholder: 'Ej: 10 o -5',
++    const { value: datos } = await Swal.fire<{ tipo: string; cantidad: number; motivo: string }>({
++      title: `Stock: ${producto.descripcion}`,
++      html:
++        `<p style="font-size:13px;color:#64748B;margin-bottom:8px">Stock actual en esta sucursal: <b>${producto.stock} ${producto.unidadMedida}</b></p>` +
++        `<select id="sw-tipo" class="swal2-select" style="width:90%;margin:6px auto">` +
++        `<option value="ENTRADA">Entrada (compra / reposición)</option>` +
++        `<option value="MERMA">Merma (pérdida, vencimiento)</option>` +
++        `<option value="AJUSTE">Conteo físico (fijar stock real)</option>` +
++        `</select>` +
++        `<input id="sw-cant" type="number" step="0.01" min="0" class="swal2-input" placeholder="Cantidad (${producto.unidadMedida})">` +
++        `<input id="sw-motivo" class="swal2-input" placeholder="Motivo (obligatorio en merma y conteo)">`,
++      focusConfirm: false,
+       showCancelButton: true,
+       confirmButtonColor: '#1E293B',
+       cancelButtonColor: '#64748B',
+-      confirmButtonText: 'Aplicar ajuste',
++      confirmButtonText: 'Aplicar',
+       cancelButtonText: 'Cancelar',
+-      inputAttributes: { step: '0.01' },
+-      inputValidator: (value) => {
+-        if (!value || Number(value) === 0 || isNaN(Number(value))) {
+-          return 'Debe ingresar un valor numérico distinto de cero.';
++      preConfirm: () => {
++        const tipo = (document.getElementById('sw-tipo') as HTMLSelectElement).value;
++        const cantidadTxt = (document.getElementById('sw-cant') as HTMLInputElement).value;
++        const motivo = (document.getElementById('sw-motivo') as HTMLInputElement).value.trim();
++        const cantidad = Number(cantidadTxt);
++        if (cantidadTxt === '' || isNaN(cantidad) || cantidad < 0 || (tipo !== 'AJUSTE' && cantidad === 0)) {
++          Swal.showValidationMessage('Ingresa una cantidad válida.');
++          return undefined;
+         }
+-      }
++        if ((tipo === 'MERMA' || tipo === 'AJUSTE') && motivo === '') {
++          Swal.showValidationMessage('El motivo es obligatorio para mermas y conteos físicos.');
++          return undefined;
++        }
++        return { tipo, cantidad, motivo };
++      },
+     });
+ 
+-    if (cantidad) {
+-      try {
+-        const numCantidad = Number(cantidad);
+-        const nuevoStock = producto.stock + numCantidad;
+-
+-        await editarProducto(producto.id, { ...producto, stock: nuevoStock });
+-
+-        const accion = numCantidad > 0 ? 'adicionado' : 'descontado';
+-        const cantidadAbsoluta = Math.abs(numCantidad);
+-
+-        Swal.fire(
+-          'Registro Actualizado',
+-          `Se han ${accion} ${cantidadAbsoluta} unidades en el inventario de ${producto.descripcion}.`,
+-          'success'
+-        );
+-      } catch {
+-        Swal.fire('Error', 'No se pudo actualizar el registro en el inventario.', 'error');
+-      }
++    if (!datos) return;
++
++    try {
++      const res = await apiFetch(`${import.meta.env.VITE_API_URL}/inventario/movimientos`, {
++        method: 'POST',
++        body: JSON.stringify({
++          productoId: producto.id,
++          tipo: datos.tipo,
++          cantidad: datos.cantidad,
++          motivo: datos.motivo || null,
++          sucursalId: sucursalId,
++        }),
++      });
++      if (!res.ok) throw new Error(await leerError(res, 'No se pudo registrar el movimiento'));
++      const r = await res.json();
++      await cargarProductos(sucursalId);
++      Swal.fire('Registrado', `Nuevo stock de ${producto.descripcion}: ${r.stock} ${producto.unidadMedida}.`, 'success');
++    } catch (err) {
++      Swal.fire('Error', err instanceof Error ? err.message : 'No se pudo registrar el movimiento.', 'error');
+     }
+-  }, [editarProducto]);
++  }, [sucursalId, cargarProductos]);
+ 
+   // 2. Procesador envuelto en useCallback para mantener la referencia estable
+   const procesarCodigoEscaneadoBusqueda = useCallback((codigo: string) => {
+@@ -177,6 +199,7 @@ export const Inventario = () => {
+         descripcion: '',
+         precio: '',
+         stock: '',
++        costo: '',
+         stockCritico: '',
+         esInsumo: false,
+         unidadMedida: 'UN',
+@@ -247,6 +270,7 @@ export const Inventario = () => {
+       descripcion: producto.descripcion,
+       precio: producto.precio.toString(),
+       stock: producto.stock.toString(),
++      costo: producto.costo != null ? producto.costo.toString() : '',
+       stockCritico: producto.stockCritico.toString(),
+       esInsumo: producto.esInsumo ?? true,
+       unidadMedida: producto.unidadMedida,
+@@ -269,7 +293,7 @@ export const Inventario = () => {
+     setEditandoId(null);
+     setListaIngredientesSeleccionados([]);
+     setForm({ 
+-      codigoBarras: '', descripcion: '', precio: '', stock: '', 
++      codigoBarras: '', descripcion: '', precio: '', stock: '', costo: '',
+       stockCritico: '', esInsumo: true, unidadMedida: 'UN', categoriaId: ''
+     });
+   };
+@@ -293,6 +317,7 @@ export const Inventario = () => {
+       descripcion: form.descripcion,
+       precio: Number(form.precio),
+       stock: Number(form.stock),
++      costo: form.costo === '' ? null : Number(form.costo),
+       stockCritico: Number(form.stockCritico),
+       esInsumo: form.esInsumo,
+       unidadMedida: form.unidadMedida,
+@@ -320,6 +345,8 @@ export const Inventario = () => {
+         <p className="text-slate-500 text-sm mt-1">Control de stock, insumos y productos para venta.</p>
+       </div>
+ 
++      <PanelStockSucursal sucursalId={sucursalId} onCambiarSucursal={setSucursalId} />
++
+       <div className='w-full max-w-6xl mb-6 space-y-4'>
+         <div className="flex gap-3">
+           <input 
+@@ -473,7 +500,7 @@ export const Inventario = () => {
+ 
+               <div className='grid grid-cols-2 gap-2'>
+                 <div className='flex border border-slate-300 rounded overflow-hidden focus-within:border-slate-500'>
+-                  <input type="number" step="0.01" className='w-full p-2.5 outline-none' placeholder="Stock Inicial" value={form.stock} onChange={(e)=> setForm({...form, stock: e.target.value})} />
++                  <input type="number" step="0.01" className={`w-full p-2.5 outline-none ${editandoId ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}`} placeholder="Stock Inicial" title={editandoId ? 'Para cambiar el stock usa "Ajustar Stock"' : 'Stock inicial en tu sucursal'} value={form.stock} readOnly={!!editandoId} onChange={(e)=> setForm({...form, stock: e.target.value})} />
+                   <select className='bg-slate-100 px-2 text-xs font-semibold outline-none cursor-pointer border-l border-slate-300 text-slate-700' value={form.unidadMedida || ""} onChange={(e) => setForm({ ...form, unidadMedida: e.target.value })}>
+                     <option value="UN">UN</option>
+                     <option value="KG">KG</option>
+@@ -483,6 +510,8 @@ export const Inventario = () => {
+                 <input type="number" placeholder="Precio ($)" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.precio} onChange={(e)=> setForm({...form, precio: e.target.value})} />
+               </div>
+ 
++              <input type="number" step="0.01" placeholder="Costo unitario ($, opcional)" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.costo} onChange={(e)=> setForm({...form, costo: e.target.value})} />
++
+               <input type="number" placeholder="Límite de Stock Crítico" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.stockCritico} onChange={(e)=> setForm({...form, stockCritico: e.target.value})} />
+ 
+               {!form.esInsumo && (
