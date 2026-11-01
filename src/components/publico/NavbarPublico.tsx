@@ -8,7 +8,7 @@ const ENLACES = [
   { texto: 'Cómo funciona', to: '/#como-funciona' },
   { texto: 'Planes', to: '/planes' },
   { texto: 'Preguntas', to: '/#preguntas' },
-  { texto: 'Contacto', to: '/#contacto' },
+  { texto: 'Contacto', to: '/contacto' },
 ];
 
 /** Barra superior pública: queda fija al hacer scroll y se pliega en un menú en móvil. */

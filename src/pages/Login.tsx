@@ -81,6 +81,10 @@ export const Login = () => {
             />
           </div>
 
+          <div className="text-right -mt-2">
+            <Link to="/recuperar" className="text-xs font-semibold text-slate-500 hover:text-slate-900 underline underline-offset-2">¿Olvidaste tu contraseña?</Link>
+          </div>
+
           <button
             type="submit"
             className="w-full mt-4 bg-slate-800 hover:bg-slate-900 text-white font-medium py-3 px-4 rounded shadow-sm transition-all active:scale-[0.99] flex justify-center items-center gap-2 text-sm"

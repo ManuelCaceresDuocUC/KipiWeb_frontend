@@ -1,6 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LandingKIPI } from './pages/LandingKIPI'; // ✨ Importación de tu nueva portada
 import { Planes } from './pages/Planes';
+import { Terminos } from './pages/Terminos';
+import { Privacidad } from './pages/Privacidad';
+import { Contacto } from './pages/Contacto';
+import { RecuperarClave } from './pages/RecuperarClave';
+import { RestablecerClave } from './pages/RestablecerClave';
 import { Login } from './pages/Login';
 import { Home } from './pages/Home';
 import { Ventas } from './pages/Ventas';
@@ -21,6 +26,11 @@ function App() {
         {/* 🔓 Rutas Públicas */}
         <Route path="/" element={<LandingKIPI />} /> {/* ✨ Portada pública de KIPI */}
         <Route path="/planes" element={<Planes />} />
+        <Route path="/contacto" element={<Contacto />} />
+        <Route path="/terminos" element={<Terminos />} />
+        <Route path="/privacidad" element={<Privacidad />} />
+        <Route path="/recuperar" element={<RecuperarClave />} />
+        <Route path="/restablecer" element={<RestablecerClave />} />
         <Route path="/login" element={<Login />} />
         <Route path="/registroempresa" element={<RegistroEmpresa />} />
         <Route path="/registro-exitoso" element={<RegistroExitoso />} />
