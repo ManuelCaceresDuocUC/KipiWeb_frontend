@@ -4,6 +4,7 @@ import Swal from 'sweetalert2';
 // Hooks
 import { useInventario } from '../hooks/useInventario';
 import { useVentas } from '../hooks/useVentas';
+import { guardarImpresionAutomatica, impresionAutomaticaActiva } from '../helpers/impresion';
 import { useCaja } from '../hooks/useCaja';
 import { useClientesPos } from '../hooks/useClientesPos';
 
@@ -45,6 +46,8 @@ export const Ventas = () => {
     busqueda, setBusqueda, setShowModalPago, pagos, setPagos, permiteFiado,
     clienteId, setClienteId 
   } = ventasContext;
+
+  const [imprimirAuto, setImprimirAuto] = useState(impresionAutomaticaActiva());
 
   // 2. Hook de Caja
   const cajaContext = useCaja();
@@ -176,6 +179,14 @@ const clientesContext = useClientesPos(setClienteId);
               <button onClick={() => { setShowModalConsultaCliente(true); setMenuAbierto(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">🔍 Consultar / Abonar Cliente</button>
               <button onClick={() => { setTipoMovimiento('ingreso'); setShowModalMovimiento(true); setMenuAbierto(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">Registrar Ingreso</button>
               <button onClick={() => { setTipoMovimiento('retiro'); setShowModalMovimiento(true); setMenuAbierto(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">Registrar Retiro</button>
+              <label className="flex items-center justify-between gap-3 w-full px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100 cursor-pointer">
+                <span>🖨️ Imprimir ticket al vender</span>
+                <input
+                  type="checkbox"
+                  checked={imprimirAuto}
+                  onChange={(e) => { setImprimirAuto(e.target.checked); guardarImpresionAutomatica(e.target.checked); }}
+                />
+              </label>
               <button onClick={() => { handleVerResumen(); setMenuAbierto(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">Resumen Financiero</button>
               <button onClick={() => { handleCerrarCaja(); setMenuAbierto(false); }} className="w-full text-left px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-medium">Cierre de Turno</button>
             </div>

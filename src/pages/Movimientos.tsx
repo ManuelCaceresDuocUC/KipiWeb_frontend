@@ -2,6 +2,9 @@ import { useState } from "react";
 import Swal from "sweetalert2";
 import { useMovimiento, type Movimiento } from "../hooks/useMovimiento"; 
 import { apiFetch, leerError } from "../helpers/apiFetch";
+import {
+    adjuntarComprobante, enviarTicketPorCorreo, reimprimirTicket, reimprimirVale, verComprobantes,
+} from "../helpers/documentosVenta";
 
 type TipoFiltro = 'hoy' | 'dia' | 'periodo' | 'semana' | 'mes';
 
@@ -244,6 +247,56 @@ export const Movimientos = () => {
                                         <div key={pg.id} className="flex justify-between text-slate-700">
                                             <span>{pg.metodo}{pg.proveedorTarjeta ? ` (${pg.proveedorTarjeta})` : ''}{pg.referencia ? ` · ${pg.referencia}` : ''}</span>
                                             <span className="font-mono font-semibold">${pg.monto.toLocaleString()}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {ventaSeleccionada.estado !== 'ANULADA' && (
+                                <div className="mt-4 pt-3 border-t border-slate-200 grid grid-cols-2 gap-2">
+                                    <button
+                                        onClick={() => reimprimirTicket(ventaSeleccionada.id)}
+                                        className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 py-2 rounded text-sm font-medium"
+                                    >
+                                        Reimprimir ticket
+                                    </button>
+                                    <button
+                                        onClick={() => enviarTicketPorCorreo(ventaSeleccionada.id)}
+                                        className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 py-2 rounded text-sm font-medium"
+                                    >
+                                        Enviar por correo
+                                    </button>
+                                    {ventaSeleccionada.pagos?.some(pg => pg.metodo === 'CREDITO') && (
+                                        <button
+                                            onClick={() => reimprimirVale(ventaSeleccionada.id)}
+                                            className="col-span-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 py-2 rounded text-sm font-medium"
+                                        >
+                                            Reimprimir vale de crédito
+                                        </button>
+                                    )}
+                                    {ventaSeleccionada.pagos?.filter(pg => pg.metodo === 'TRANSFERENCIA').map(pg => (
+                                        <div key={pg.id} className="col-span-2 flex gap-2">
+                                            {pg.tieneComprobante && (
+                                                <button
+                                                    onClick={() => verComprobantes(ventaSeleccionada.id)}
+                                                    className="flex-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 py-2 rounded text-sm font-medium"
+                                                >
+                                                    Ver comprobante
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={async () => {
+                                                    if (await adjuntarComprobante(ventaSeleccionada.id, pg.id)) {
+                                                        setVentaSeleccionada({
+                                                            ...ventaSeleccionada,
+                                                            pagos: ventaSeleccionada.pagos?.map(x => x.id === pg.id ? { ...x, tieneComprobante: true } : x),
+                                                        });
+                                                        aplicarFiltro();
+                                                    }
+                                                }}
+                                                className="flex-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 py-2 rounded text-sm font-medium"
+                                            >
+                                                {pg.tieneComprobante ? 'Reemplazar comprobante' : 'Adjuntar comprobante'}
+                                            </button>
                                         </div>
                                     ))}
                                 </div>

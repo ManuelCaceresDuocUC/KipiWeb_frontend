@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { apiFetch, leerError } from '../helpers/apiFetch';
 import type { MovimientoCuenta } from '../types/ventas.types';
+import { enviarEstadoCuentaPorCorreo } from '../helpers/documentosVenta';
 
 interface ResumenCliente {
   id: number;
   nombre: string;
   rut: string;
+  email?: string | null;
   limiteCredito: number;
   deudaActual: number;
   disponible: number;
@@ -65,7 +67,17 @@ export const EstadoCuentaCliente = ({ clienteId, onClose }: Props) => {
             <h2 className="text-lg font-semibold text-slate-900">Estado de cuenta</h2>
             {cliente && <p className="text-xs text-slate-500 font-mono">{cliente.nombre} · {cliente.rut}</p>}
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
+          <div className="flex items-center gap-3">
+            {cliente && (
+              <button
+                onClick={() => enviarEstadoCuentaPorCorreo(cliente.id, cliente.email)}
+                className="text-xs font-medium text-teal-700 border border-teal-300 bg-white hover:bg-teal-50 px-3 py-1.5 rounded"
+              >
+                Enviar por correo
+              </button>
+            )}
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
+          </div>
         </div>
 
         <div className="p-4">

@@ -8,8 +8,10 @@ import { getToken, limpiarSesion } from './session';
 export const apiFetch = async (endpoint: string, opciones: RequestInit = {}) => {
   const token = getToken();
 
+  // Con FormData (subida de archivos) el navegador pone solo el Content-Type con su "boundary"
+  const esFormData = typeof FormData !== 'undefined' && opciones.body instanceof FormData;
   const headers = {
-    'Content-Type': 'application/json',
+    ...(esFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...opciones.headers,
   };

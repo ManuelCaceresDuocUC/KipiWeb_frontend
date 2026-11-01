@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { apiFetch, leerError } from '../helpers/apiFetch';
 import Swal from 'sweetalert2';
+import { imprimirDocumentos } from '../helpers/impresion';
 import type { ClienteInfo } from '../types/ventas.types';
 
 const formatearRut = (rut: string) => {
@@ -101,6 +102,11 @@ export const useClientesPos = (
       });
 
     if (response.ok) {
+      // Comprobante de abono (80 mm) directo a la impresora; si falla la lectura, el abono igual quedó registrado
+      try {
+        const cuerpo = await response.json();
+        if (cuerpo?.comprobantePdf) void imprimirDocumentos([cuerpo.comprobantePdf], 'Abono');
+      } catch { /* sin comprobante */ }
       Swal.fire('Éxito', 'Abono registrado correctamente.', 'success');
       
       // Resetear la vista del modal

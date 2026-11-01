@@ -18,6 +18,7 @@ export interface PagoMovimiento {
     monto: number;
     proveedorTarjeta?: string | null;
     referencia?: string | null;
+    tieneComprobante?: boolean;
 }
 
 export interface Movimiento { 

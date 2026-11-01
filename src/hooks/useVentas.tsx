@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { apiFetch, leerError } from "../helpers/apiFetch";
 import type { LineaPago } from "../types/ventas.types";
+import { imprimirDocumentos } from "../helpers/impresion";
+import { adjuntarComprobante } from "../helpers/documentosVenta";
 
 export interface Producto {
   id: number;
@@ -169,23 +171,27 @@ export const useVentas = (onVentaExitosa?: () => void) => {
       if (!res.ok) throw new Error(await leerError(res, "Error al procesar el pago"));
       const respuestaBackend = await res.json();
 
-      // Si el servidor devuelve un PDF en base64 para descargar localmente en navegador
-      if (respuestaBackend?.boletaPdf) {
-        const linkSource = `data:application/pdf;base64,${respuestaBackend.boletaPdf}`;
-        const downloadLink = document.createElement("a");
-        downloadLink.href = linkSource;
-        downloadLink.download = `Boleta_${Date.now()}.pdf`;
-        downloadLink.click();
-      }
-
       const duplicada = respuestaBackend?.status === 'duplicate';
       const hayCredito = pagos.some(l => l.metodo === 'CREDITO');
-      Swal.fire({
-        title: duplicada ? 'Venta ya registrada' : (hayCredito ? '¡Venta a Crédito Registrada!' : '¡Venta Completada!'),
-        text: duplicada ? respuestaBackend.message : '',
-        icon: duplicada ? 'info' : 'success',
-        timer: duplicada ? undefined : 2500
-      });
+
+      // Ticket 80 mm (y vale de crédito si corresponde): se imprime desde el navegador sin abrir el PDF.
+      // No se espera: la caja queda libre mientras sale el ticket.
+      if (!duplicada) {
+        void imprimirDocumentos([respuestaBackend?.boletaPdf, respuestaBackend?.valePdf], `Venta_${respuestaBackend?.ventaId ?? ''}`);
+      }
+
+      // Transferencia: se ofrece adjuntar el comprobante recién recibido (opcional; se puede hacer luego en Movimientos).
+      // Si no, aviso breve de venta lista. Ninguno de los dos bloquea la limpieza de la caja.
+      if (!duplicada && respuestaBackend?.tieneTransferencia && respuestaBackend?.ventaId) {
+        void adjuntarComprobante(respuestaBackend.ventaId);
+      } else {
+        void Swal.fire({
+          title: duplicada ? 'Venta ya registrada' : (hayCredito ? '¡Venta a Crédito Registrada!' : '¡Venta Completada!'),
+          text: duplicada ? respuestaBackend.message : '',
+          icon: duplicada ? 'info' : 'success',
+          timer: duplicada ? undefined : 2500
+        });
+      }
 
       // Limpieza de estados
       claveRef.current = null;
