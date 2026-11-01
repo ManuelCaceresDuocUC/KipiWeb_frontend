@@ -27,6 +27,8 @@ export interface Movimiento {
     metodoPago: string;
     fechaHora: string;
     estado?: string | null;
+    dteEstado?: string | null;
+    dteFolio?: number | null;
     motivoAnulacion?: string | null;
     anuladaPor?: string | null;
     pagos?: PagoMovimiento[];

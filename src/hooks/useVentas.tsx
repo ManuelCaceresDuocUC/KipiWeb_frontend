@@ -180,9 +180,20 @@ export const useVentas = (onVentaExitosa?: () => void) => {
         void imprimirDocumentos([respuestaBackend?.boletaPdf, respuestaBackend?.valePdf], `Venta_${respuestaBackend?.ventaId ?? ''}`);
       }
 
-      // Transferencia: se ofrece adjuntar el comprobante recién recibido (opcional; se puede hacer luego en Movimientos).
-      // Si no, aviso breve de venta lista. Ninguno de los dos bloquea la limpieza de la caja.
-      if (!duplicada && respuestaBackend?.tieneTransferencia && respuestaBackend?.ventaId) {
+      // Boleta electrónica que no salió (la venta SÍ quedó registrada y se imprimió el comprobante interno)
+      const avisoDte: string = respuestaBackend?.dteAviso || '';
+      const hayTransferencia = !duplicada && respuestaBackend?.tieneTransferencia && respuestaBackend?.ventaId;
+
+      if (!duplicada && avisoDte && ['PENDIENTE', 'REVISAR'].includes(respuestaBackend?.dteEstado)) {
+        // No se bloquea la caja: el aviso es no modal para el flujo y luego, si corresponde, se ofrece el comprobante
+        void Swal.fire({
+          icon: 'warning',
+          title: `Venta N° ${respuestaBackend.ventaId} registrada`,
+          text: avisoDte,
+          confirmButtonText: 'Entendido',
+        }).then(() => { if (hayTransferencia) void adjuntarComprobante(respuestaBackend.ventaId); });
+      } else if (hayTransferencia) {
+        // Transferencia: se ofrece adjuntar el comprobante recién recibido (opcional; se puede hacer luego en Movimientos)
         void adjuntarComprobante(respuestaBackend.ventaId);
       } else {
         void Swal.fire({

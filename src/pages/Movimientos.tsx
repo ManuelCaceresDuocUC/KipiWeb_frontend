@@ -3,7 +3,8 @@ import Swal from "sweetalert2";
 import { useMovimiento, type Movimiento } from "../hooks/useMovimiento"; 
 import { apiFetch, leerError } from "../helpers/apiFetch";
 import {
-    adjuntarComprobante, enviarTicketPorCorreo, reimprimirTicket, reimprimirVale, verComprobantes,
+    adjuntarComprobante, enviarTicketPorCorreo, reimprimirBoleta, reimprimirTicket, reimprimirVale, reintentarBoleta,
+    reintentarNotaCredito, verComprobantes, ETIQUETA_DTE,
 } from "../helpers/documentosVenta";
 
 type TipoFiltro = 'hoy' | 'dia' | 'periodo' | 'semana' | 'mes';
@@ -69,7 +70,16 @@ export const Movimientos = () => {
             const r = await res.json();
             setVentaSeleccionada(null);
             aplicarFiltro();
-            Swal.fire({ icon: 'success', title: `Venta #${venta.id} anulada`, text: r.aviso || '' });
+            const nc = r.notaCredito as { estado?: string; folio?: number | null; aviso?: string } | undefined;
+            const lineaNc = nc?.estado === 'EMITIDO'
+                ? `Nota de crédito emitida${nc.folio ? ` (N° ${nc.folio})` : ''}.`
+                : (nc?.aviso || '');
+            const hayProblemaNc = nc && ['PENDIENTE', 'REVISAR'].includes(nc.estado || '');
+            Swal.fire({
+                icon: hayProblemaNc ? 'warning' : 'success',
+                title: `Venta #${venta.id} anulada`,
+                text: [r.aviso, lineaNc].filter(Boolean).join(' '),
+            });
         } catch (e) {
             Swal.fire('Error', e instanceof Error ? e.message : 'No se pudo anular la venta', 'error');
         }
@@ -184,6 +194,8 @@ export const Movimientos = () => {
                                             <td className='px-6 py-3.5 font-medium text-slate-700'>
                                                 {mov.metodoPago}
                                                 {mov.estado === 'ANULADA' && <span className="ml-2 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wider">ANULADA</span>}
+                                                {mov.dteEstado === 'PENDIENTE' && mov.estado !== 'ANULADA' && <span className="ml-2 bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wider">BOLETA PENDIENTE</span>}
+                                                {mov.dteEstado === 'REVISAR' && mov.estado !== 'ANULADA' && <span className="ml-2 bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wider">BOLETA: REVISAR</span>}
                                             </td>
                                             <td className='px-6 py-3.5 text-slate-500'>
                                                 {new Date(mov.fechaHora).toLocaleString()}
@@ -249,6 +261,69 @@ export const Movimientos = () => {
                                             <span className="font-mono font-semibold">${pg.monto.toLocaleString()}</span>
                                         </div>
                                     ))}
+                                </div>
+                            )}
+                            {ventaSeleccionada.dteEstado && ventaSeleccionada.dteEstado !== 'CANCELADO' && (
+                                <div className={`mt-4 p-3 rounded border text-xs ${
+                                    ventaSeleccionada.dteEstado === 'EMITIDO' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                        : ventaSeleccionada.dteEstado === 'PENDIENTE' ? 'bg-amber-50 border-amber-200 text-amber-900'
+                                        : 'bg-orange-50 border-orange-200 text-orange-900'}`}>
+                                    <p className="font-semibold uppercase tracking-wider">
+                                        {ETIQUETA_DTE[ventaSeleccionada.dteEstado] || ventaSeleccionada.dteEstado}
+                                        {ventaSeleccionada.dteFolio ? ` · N° ${ventaSeleccionada.dteFolio}` : ''}
+                                    </p>
+                                    {ventaSeleccionada.dteEstado === 'PENDIENTE' && ventaSeleccionada.estado !== 'ANULADA' && (
+                                        <>
+                                            <p className="mt-1">La venta está registrada, pero la boleta electrónica aún no se emitió.</p>
+                                            <button
+                                                onClick={async () => {
+                                                    const r = await reintentarBoleta(ventaSeleccionada.id);
+                                                    if (r) { setVentaSeleccionada(null); aplicarFiltro(); }
+                                                }}
+                                                className="mt-2 bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded font-medium"
+                                            >
+                                                Reintentar boleta
+                                            </button>
+                                        </>
+                                    )}
+                                    {ventaSeleccionada.dteEstado === 'REVISAR' && ventaSeleccionada.estado !== 'ANULADA' && (
+                                        <>
+                                            <p className="mt-1">No se sabe si el proveedor alcanzó a emitirla. Verifica en su portal antes de reintentar para no duplicar la boleta.</p>
+                                            {esAdmin && (
+                                                <button
+                                                    onClick={async () => {
+                                                        const c = await Swal.fire({
+                                                            icon: 'warning', title: '¿Ya verificaste en el portal?',
+                                                            text: 'Solo reintenta si confirmaste que la boleta NO fue emitida.',
+                                                            showCancelButton: true, confirmButtonText: 'Sí, reintentar', cancelButtonText: 'Volver',
+                                                        });
+                                                        if (!c.isConfirmed) return;
+                                                        const r = await reintentarBoleta(ventaSeleccionada.id, true);
+                                                        if (r) { setVentaSeleccionada(null); aplicarFiltro(); }
+                                                    }}
+                                                    className="mt-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded font-medium"
+                                                >
+                                                    Ya verifiqué: reintentar
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+                                    {ventaSeleccionada.dteEstado === 'EMITIDO' && ventaSeleccionada.estado !== 'ANULADA' && (
+                                        <button
+                                            onClick={() => reimprimirBoleta(ventaSeleccionada.id)}
+                                            className="mt-2 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded font-medium"
+                                        >
+                                            Reimprimir boleta
+                                        </button>
+                                    )}
+                                    {ventaSeleccionada.dteEstado === 'EMITIDO' && ventaSeleccionada.estado === 'ANULADA' && esAdmin && (
+                                        <button
+                                            onClick={() => reintentarNotaCredito(ventaSeleccionada.id)}
+                                            className="mt-2 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded font-medium"
+                                        >
+                                            Nota de crédito: ver estado / reintentar
+                                        </button>
+                                    )}
                                 </div>
                             )}
                             {ventaSeleccionada.estado !== 'ANULADA' && (

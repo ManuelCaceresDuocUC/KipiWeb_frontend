@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { apiFetch, leerError } from '../helpers/apiFetch';
 
 interface ConfiguracionDTEData {
-  proveedor: 'openfactura' | 'libredte' | 'simplefactura' | 'relbase' | 'ninguno';
+  proveedor: 'openfactura' | 'libredte' | 'ninguno';
   apiKey: string; // solo lo que el usuario escribe ahora; el servidor nunca devuelve la llave guardada
   apiSecret?: string;
   rutEmisor: string;
@@ -174,9 +174,7 @@ export const ConfiguracionDTE = () => {
                   className="w-full p-2.5 rounded border border-slate-300 bg-white focus:outline-none focus:border-slate-500 text-sm"
                 >
                   <option value="openfactura">OpenFactura (Haulmer)</option>
-                  <option value="libredte">LibreDTE</option>
-                  <option value="simplefactura">SimpleFactura</option>
-                  <option value="relbase">relBase API</option>
+                  <option value="libredte">LibreDTE (beta, sin probar con cuenta real)</option>
                   <option value="ninguno">Deshabilitado (Solo boleta informativa)</option>
                 </select>
               </div>
@@ -232,18 +230,10 @@ export const ConfiguracionDTE = () => {
                 )}
               </div>
 
-              {/* Secret Key opcional si LibreDTE o SimpleFactura lo exigen */}
-              {(config.proveedor === 'libredte' || config.proveedor === 'simplefactura') && (
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">API Secret / Hash adicional (Opcional)</label>
-                  <input
-                    type="password"
-                    placeholder="Secret Key adicional si aplica..."
-                    value={config.apiSecret || ''}
-                    onChange={(e) => setConfig({ ...config, apiSecret: e.target.value })}
-                    className="w-full p-2.5 rounded border border-slate-300 bg-white focus:outline-none focus:border-slate-500 text-sm font-mono"
-                  />
-                </div>
+              {config.proveedor === 'libredte' && (
+                <p className="text-xs text-slate-500">
+                  En LibreDTE pega el <strong>API hash</strong> (32 caracteres) o la <strong>API KEY</strong> que aparece en tu perfil.
+                </p>
               )}
 
               <div className="pt-2">

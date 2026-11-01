@@ -136,3 +136,70 @@ export const enviarEstadoCuentaPorCorreo = async (clienteId: number, emailClient
     error(e, 'No se pudo enviar el correo');
   }
 };
+
+// ---------------- Boleta electrónica (DTE) ----------------
+
+export interface EstadoEmision {
+  estado: string; // EMITIDO | PENDIENTE | REVISAR | EN_CURSO | NO_APLICA
+  folio: number | null;
+  aviso: string;
+  pdf?: string;
+}
+
+export const ETIQUETA_DTE: Record<string, string> = {
+  EMITIDO: 'Boleta emitida',
+  PENDIENTE: 'Boleta pendiente',
+  REVISAR: 'Boleta por revisar',
+  CANCELADO: 'Boleta cancelada',
+};
+
+/** Reintenta emitir la boleta de una venta cuyo proveedor falló. Imprime el PDF si sale. */
+export const reintentarBoleta = async (ventaId: number, forzar = false): Promise<EstadoEmision | null> => {
+  try {
+    Swal.fire({ title: 'Emitiendo boleta...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    const res = await apiFetch(`${API()}/ventas/${ventaId}/boleta/reintentar?forzar=${forzar}`, { method: 'POST' });
+    if (!res.ok) throw new Error(await leerError(res, 'No se pudo reintentar la boleta'));
+    const r: EstadoEmision = await res.json();
+    if (r.estado === 'EMITIDO') {
+      if (r.pdf) {
+        const ok = await imprimirPdfBase64(r.pdf);
+        if (!ok) descargarPdfBase64(r.pdf, `Boleta_${r.folio ?? ventaId}.pdf`);
+      }
+      await Swal.fire({ icon: 'success', title: `Boleta emitida${r.folio ? ` (N° ${r.folio})` : ''}`, text: r.aviso || '' });
+    } else {
+      await Swal.fire({ icon: r.estado === 'EN_CURSO' ? 'info' : 'warning', title: 'La boleta aún no salió', text: r.aviso || 'Intenta nuevamente.' });
+    }
+    return r;
+  } catch (e) {
+    await error(e, 'No se pudo reintentar la boleta');
+    return null;
+  }
+};
+
+/** Reimprime la copia guardada de la boleta electrónica. */
+export const reimprimirBoleta = async (ventaId: number) => {
+  try {
+    const pdf = await pedirPdf(`/ventas/${ventaId}/boleta`, 'No se pudo abrir la boleta');
+    if (!pdf) return;
+    if (!(await imprimirPdfBase64(pdf))) descargarPdfBase64(pdf, `Boleta_${ventaId}.pdf`);
+  } catch (e) {
+    error(e, 'No se pudo reimprimir la boleta');
+  }
+};
+
+/** Emite o consulta la nota de crédito de una venta anulada (solo administradores). */
+export const reintentarNotaCredito = async (ventaId: number) => {
+  try {
+    Swal.fire({ title: 'Procesando nota de crédito...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    const res = await apiFetch(`${API()}/ventas/${ventaId}/nota-credito/reintentar`, { method: 'POST' });
+    if (!res.ok) throw new Error(await leerError(res, 'No se pudo procesar la nota de crédito'));
+    const r: EstadoEmision = await res.json();
+    await Swal.fire({
+      icon: r.estado === 'EMITIDO' ? 'success' : r.estado === 'NO_APLICA' ? 'info' : 'warning',
+      title: r.estado === 'EMITIDO' ? `Nota de crédito emitida${r.folio ? ` (N° ${r.folio})` : ''}` : 'Nota de crédito',
+      text: r.aviso || (r.estado === 'NO_APLICA' ? 'Esta venta no requiere nota de crédito.' : ''),
+    });
+  } catch (e) {
+    await error(e, 'No se pudo procesar la nota de crédito');
+  }
+};
