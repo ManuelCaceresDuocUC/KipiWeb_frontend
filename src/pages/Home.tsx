@@ -97,7 +97,7 @@ export const Home = () => {
   };
 
   return (
-    <div className="p-8 flex flex-col gap-8 bg-slate-50 min-h-screen font-sans text-slate-800">
+    <div className="flex flex-col gap-8 font-sans text-slate-800">
       
       {/* 1. ENCABEZADO DE BIENVENIDA */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

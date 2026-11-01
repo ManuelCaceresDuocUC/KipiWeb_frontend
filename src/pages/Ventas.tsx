@@ -157,7 +157,7 @@ const clientesContext = useClientesPos(setClienteId);
   );
 
   return (
-    <div className='min-h-screen bg-slate-50 flex flex-col items-center p-8 font-sans text-slate-800'>
+    <div className='flex flex-col items-center font-sans text-slate-800'>
       
       {/* 1. CABECERA Y MENÚ OPERATIVO */}
       <div className="w-full max-w-6xl flex justify-between items-center mb-8 border-b border-slate-200 pb-4">

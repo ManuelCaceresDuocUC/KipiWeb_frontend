@@ -134,7 +134,7 @@ export const ConfiguracionDTE = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8 font-sans text-slate-800">
+    <div className="font-sans text-slate-800">
       <div className="max-w-4xl mx-auto mb-8 flex justify-between items-center border-b border-slate-200 pb-6">
         <div>
           <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">Facturación Electrónica DTE</h1>

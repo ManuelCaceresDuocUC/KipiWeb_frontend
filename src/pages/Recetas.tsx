@@ -226,8 +226,8 @@ export const Recetas = () => {
   }, [recetasFiltradas, productos]);
 
   return (
-    <div className='min-h-screen bg-slate-50 flex flex-col items-center p-8 font-sans text-slate-800'>
-        <div className="w-full max-w-6xl mb-8 border-b border-slate-200 pb-4 flex justify-between items-end">
+    <div className='flex flex-col items-center font-sans text-slate-800'>
+        <div className="w-full max-w-6xl mb-8 border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3">
           <div>
             <h1 className='text-3xl font-semibold text-slate-900 tracking-tight'>Gestión de Formulaciones y Recetas</h1>
             <p className="text-slate-500 text-sm mt-1">Selecciona un producto elaborado para visualizar y gestionar sus insumos componentes.</p>
@@ -266,6 +266,10 @@ export const Recetas = () => {
                             {/* 🟢 CABECERA CLICKEABLE DEL PRODUCTO */}
                             <div 
                                 onClick={() => toggleExpandir(grupo.productoId)}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpandir(grupo.productoId); } }}
+                                role="button"
+                                tabIndex={0}
+                                aria-expanded={estaExpandido}
                                 className={`px-6 py-4 flex justify-between items-center cursor-pointer select-none transition-colors ${
                                     estaExpandido ? 'bg-slate-100 border-b border-slate-200' : 'bg-white hover:bg-slate-50'
                                 }`}
@@ -297,8 +301,8 @@ export const Recetas = () => {
 
                             {/* 🟢 TABLA DESPLEGABLE CON LOS INSUMOS */}
                             {estaExpandido && (
-                                <div className="bg-slate-50/50 p-2">
-                                    <table className="w-full text-left text-sm bg-white rounded border border-slate-100 overflow-hidden shadow-2xs">
+                                <div className="bg-slate-50/50 p-2 overflow-x-auto">
+                                    <table className="w-full min-w-[480px] text-left text-sm bg-white rounded border border-slate-100 overflow-hidden shadow-2xs">
                                         <thead className="bg-slate-100/75 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                                             <tr>
                                                 <th className="px-6 py-3 w-1/2">Insumo Componente (Descuento de Stock)</th>

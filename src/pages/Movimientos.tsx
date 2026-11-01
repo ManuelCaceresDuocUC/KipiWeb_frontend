@@ -104,13 +104,13 @@ export const Movimientos = () => {
     };
 
     return (
-        <div className="p-8 bg-slate-50 min-h-screen font-sans text-slate-800">
+        <div className="font-sans text-slate-800">
             <div className="mb-8 border-b border-slate-200 pb-4">
               <h1 className='text-3xl font-semibold text-slate-900 tracking-tight'>Registro de Movimientos y Ventas</h1>
               <p className="text-slate-500 text-sm mt-1">Histórico general y análisis de transacciones.</p>
             </div>
 
-            <div className="bg-white p-4 rounded shadow-sm border border-slate-200 mb-8 flex flex-col md:flex-row gap-4 items-end max-w-6xl text-sm">
+            <div className="bg-white p-4 rounded shadow-sm border border-slate-200 mb-8 flex flex-col md:flex-row md:flex-wrap gap-4 md:items-end max-w-6xl text-sm">
                 
                 <div className="flex flex-col gap-1">
                     <label className="font-semibold text-slate-700 text-xs uppercase tracking-wider">Criterio de filtro:</label>
@@ -172,11 +172,11 @@ export const Movimientos = () => {
 
             {!loading && !error && (
                 <div className='flex flex-col lg:flex-row gap-8 items-start w-full max-w-6xl'>
-                    <div className="flex-1 overflow-hidden rounded shadow-sm border border-slate-200 bg-white w-full">
+                    <div className="flex-1 overflow-x-auto rounded shadow-sm border border-slate-200 bg-white w-full">
                         {movimientos.length === 0 ? (
                             <div className="p-10 text-center text-slate-400 font-medium text-sm">No existen transacciones registradas en el período seleccionado.</div>
                         ) : (
-                            <table className='w-full text-left text-sm'>
+                            <table className='w-full min-w-[640px] text-left text-sm'>
                                 <thead className='bg-slate-100 border-b border-slate-200 font-semibold text-slate-600 text-xs uppercase tracking-wider'>
                                     <tr>
                                         <th className="px-6 py-3.5">ID</th>
@@ -190,7 +190,7 @@ export const Movimientos = () => {
                                     {movimientos.map((mov) => (
                                         <tr key={mov.id} className={`hover:bg-slate-50 transition-colors ${mov.estado === 'ANULADA' ? 'bg-red-50/40 text-slate-400' : ''}`}>
                                             <td className='px-6 py-3.5 font-mono text-slate-500'>#{mov.id}</td>
-                                            <td className={`px-6 py-3.5 font-semibold ${mov.estado === 'ANULADA' ? 'line-through text-slate-400' : 'text-slate-900'}`}>${mov.total.toLocaleString()}</td>
+                                            <td className={`px-6 py-3.5 font-semibold ${mov.estado === 'ANULADA' ? 'line-through text-slate-400' : 'text-slate-900'}`}>${mov.total.toLocaleString('es-CL')}</td>
                                             <td className='px-6 py-3.5 font-medium text-slate-700'>
                                                 {mov.metodoPago}
                                                 {mov.estado === 'ANULADA' && <span className="ml-2 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wider">ANULADA</span>}
@@ -198,7 +198,7 @@ export const Movimientos = () => {
                                                 {mov.dteEstado === 'REVISAR' && mov.estado !== 'ANULADA' && <span className="ml-2 bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wider">BOLETA: REVISAR</span>}
                                             </td>
                                             <td className='px-6 py-3.5 text-slate-500'>
-                                                {new Date(mov.fechaHora).toLocaleString()}
+                                                {new Date(mov.fechaHora).toLocaleString('es-CL')}
                                             </td>
                                             <td className='px-6 py-3.5 text-center'>
                                                 <button 
@@ -218,11 +218,11 @@ export const Movimientos = () => {
             )}
 
             {ventaSeleccionada && (
-                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded shadow-lg border border-slate-200 w-full max-w-md overflow-hidden text-sm">
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) setVentaSeleccionada(null); }}>
+                    <div role="dialog" aria-modal="true" aria-label="Detalle de la transacción" className="bg-white rounded shadow-lg border border-slate-200 w-full max-w-md overflow-hidden text-sm">
                         <div className="bg-slate-800 p-4 text-white flex justify-between items-center">
                             <h3 className="font-semibold text-base">Detalle de Transacción #{ventaSeleccionada.id}</h3>
-                            <button onClick={() => setVentaSeleccionada(null)} className="font-mono text-lg font-bold leading-none">&times;</button>
+                            <button onClick={() => setVentaSeleccionada(null)} aria-label="Cerrar" className="font-mono text-lg font-bold leading-none">&times;</button>
                         </div>
                         
                         <div className="p-6">
@@ -242,11 +242,11 @@ export const Movimientos = () => {
                                             <div className="text-left">
                                                 <p className="font-medium text-slate-800">{det.producto.descripcion}</p>
                                                 <p className="text-xs text-slate-500 font-mono mt-0.5">
-                                                    {det.cantidad} und. &times; ${precioReal}
+                                                    {det.cantidad} und. &times; ${precioReal.toLocaleString('es-CL')}
                                                 </p>
                                             </div>
                                             <p className="font-semibold text-slate-900">
-                                                ${(det.cantidad * precioReal).toLocaleString()}
+                                                ${(det.cantidad * precioReal).toLocaleString('es-CL')}
                                             </p>
                                         </div>
                                     );
@@ -258,7 +258,7 @@ export const Movimientos = () => {
                                     {ventaSeleccionada.pagos.map(pg => (
                                         <div key={pg.id} className="flex justify-between text-slate-700">
                                             <span>{pg.metodo}{pg.proveedorTarjeta ? ` (${pg.proveedorTarjeta})` : ''}{pg.referencia ? ` · ${pg.referencia}` : ''}</span>
-                                            <span className="font-mono font-semibold">${pg.monto.toLocaleString()}</span>
+                                            <span className="font-mono font-semibold">${pg.monto.toLocaleString('es-CL')}</span>
                                         </div>
                                     ))}
                                 </div>

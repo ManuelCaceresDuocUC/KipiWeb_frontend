@@ -60,7 +60,7 @@ export const useMovimiento = () => {
             const datos = await respuesta.json();
             setMovimientos(datos);
         } catch (err) {
-            console.log(err);
+            console.error(err);
             setError("Error al procesar los datos del servidor");
         } finally {
             setLoading(false);

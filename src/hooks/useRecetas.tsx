@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
-import { apiFetch } from "../helpers/apiFetch"; // ✨ 1. Importación del helper
+import { apiFetch, leerError } from "../helpers/apiFetch"; // ✨ 1. Importación del helper
 
 export interface Receta {
     id?: number;
@@ -39,7 +39,7 @@ export const useRecetas = () => {
             if (!respuesta.ok) throw new Error("Error al conectar con el servidor");
             const datos = await respuesta.json();
             
-            console.log("Recetas recibidas del backend:", datos); 
+            
             setRecetas(datos);
         } catch (err: unknown) {
             const mensaje = err instanceof Error ? err.message : "Error desconocido";
@@ -68,7 +68,7 @@ export const useRecetas = () => {
             try {
                 // ✨ 3. Uso de apiFetch para eliminar
                 const res = await apiFetch(`${API_URL}/${id}`, { method: 'DELETE' });
-                if (!res.ok) throw new Error("Error en el servidor");
+                if (!res.ok) throw new Error(await leerError(res, "Error en el servidor"));
 
                 setRecetas(recetas.filter(r => r.id !== id));
                 Swal.fire('Eliminado', 'El insumo ha sido disociado de la receta.', 'success');
@@ -87,7 +87,7 @@ export const useRecetas = () => {
                 method: 'POST',
                 body: JSON.stringify(nuevo)
             });
-            if (!res.ok) throw new Error("Error al guardar");
+            if (!res.ok) throw new Error(await leerError(res, "Error al guardar"));
             
             const recetaGuardada = await res.json();
             setRecetas([...recetas, recetaGuardada]);
@@ -107,7 +107,7 @@ export const useRecetas = () => {
                 body: JSON.stringify(datosActualizados)
             });
 
-            if (!res.ok) throw new Error("Error al actualizar");
+            if (!res.ok) throw new Error(await leerError(res, "Error al actualizar"));
 
             const recetaServidor = await res.json();
             setRecetas(prev => prev.map(r => r.id === id ? recetaServidor : r));

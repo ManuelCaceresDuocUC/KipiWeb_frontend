@@ -1,21 +1,14 @@
-# Etapa 7 – Frontend
+# Etapa 6B – Revisión de pantallas internas (solo frontend)
+Copia sobre `kipiweb_frontend`. No requiere backend. Sin `npm run build` (sin registro npm); tipos revisados con tsc parcial.
 
-Copia sobre `kipiweb_frontend`. No pude ejecutar `npm run build` (sin npm registry); revisé tipos con tsc parcial.
+## Corregido
+- **Menú lateral:** la página *Recetas* no tenía enlace (quedaba huérfana) → ahora aparece para administradores. Inventario, Recetas y Administración solo se muestran a admin (antes el vendedor veía Inventario y rebotaba). Logo del menú arreglado (estaba mal anidado), usuario y empresa visibles abajo, etiquetas de accesibilidad.
+- **Doble relleno / doble scroll:** casi todas las pantallas se envolvían en `min-h-screen + padding` dentro del layout, que ya lo trae. Corregido en Inicio, Caja, Inventario, Movimientos, Recetas, Administración y Configuración DTE.
+- **Celular:** tablas de Inventario, Movimientos y Recetas con scroll horizontal; filtros que se apilan; botones de acciones ya no rompen la fila.
+- **Inventario:** validación de números negativos/vacíos, evita doble envío (botón "Guardando…"), Escape o clic fuera cierra el formulario.
+- **Montos:** formato chileno ($1.234.567) en todas las pantallas (había mezcla con `$1,234,567`).
+- **Errores:** al eliminar/editar productos y recetas ahora se muestra el motivo real del servidor (p. ej. "tiene ventas asociadas") en lugar de un mensaje genérico.
+- **Accesibilidad:** diálogos con rol y cierre con clic fuera, acordeón de Recetas usable con teclado, `console.log` de depuración eliminados.
 
-## Variable en Vercel
-`VITE_TURNSTILE_SITE_KEY` = Site key de Cloudflare Turnstile (pública). Sin ella no se muestra el captcha (si el backend sí tiene `TURNSTILE_SECRET`, rechazará los envíos: configura ambas o ninguna).
-
-### Crear el widget de Turnstile (gratis)
-Cloudflare → Turnstile → Add widget → dominios: `kipipos.cl`, `www.kipipos.cl` y `localhost` → modo *Managed* → copia **Site key** (Vercel) y **Secret key** (Render).
-
-## Páginas nuevas
-`/terminos`, `/privacidad`, `/contacto`, `/recuperar`, `/restablecer`. Footer con enlaces a las tres primeras. Login con "¿Olvidaste tu contraseña?".
-
-## Registro
-Verificación de correo con código → casilla de aceptación (con enlaces) → ventana de confirmación con precio, renovación automática, cancelación y reembolsos → Flow. Empleados con correo opcional.
-
-## Administración
-Tabla "Personal del Sistema": botones para cambiar la contraseña y el correo de cada usuario.
-
-## ⚠ Legal: revisar antes de publicar
-Los textos de Términos y Privacidad son un **borrador**; un abogado debe revisarlos. Completa en `src/config/legal.ts`: razón social, RUT, domicilio y ciudad de tribunales de la SpA, y confirma: días de conservación (90), si el precio incluye IVA, y el tope de responsabilidad (3 meses de pagos). Cada vez que cambies los textos, sube `LEGAL.version` y `LEGAL_TERMINOS_VERSION` en Render.
+## No tocado (pendiente)
+Pantalla para crear usuarios después del registro; edición de recetas desde Inventario (se hace en Recetas).

@@ -141,7 +141,7 @@ export const useCaja = () => {
     
     const confirmacion = await Swal.fire({
       title: '¿Confirmar declaración de caja?',
-      html: `Ha declarado un monto físico en efectivo de <b>$${Number(efectivoFisicoDeclarado).toLocaleString()}</b>.<br/><br/>Esta cifra no podrá ser editada posteriormente para efectos de auditoría.`,
+      html: `Ha declarado un monto físico en efectivo de <b>$${Number(efectivoFisicoDeclarado).toLocaleString('es-CL')}</b>.<br/><br/>Esta cifra no podrá ser editada posteriormente para efectos de auditoría.`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#1E293B',

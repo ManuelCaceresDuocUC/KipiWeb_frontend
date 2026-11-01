@@ -55,16 +55,16 @@ export const ModalCierre = ({
           <>
             <h2 className="text-lg font-semibold mb-4 text-slate-900 border-b border-slate-100 pb-2 text-center">Resultado de Cuadratura</h2>
             <div className="space-y-3 font-mono">
-               <div className="flex justify-between text-slate-600"><span className="font-sans">Fondo Inicial:</span><span>${datosCierreCalculados.fondoInicial.toLocaleString()}</span></div>
-               <div className="flex justify-between text-slate-600"><span className="font-sans">Ventas Efectivo:</span><span>+ ${datosCierreCalculados.ventasEfectivo.toLocaleString()}</span></div>
-               <div className="flex justify-between text-slate-600"><span className="font-sans">Abonos a Deuda:</span><span>+ ${(datosCierreCalculados.abonosCredito || 0).toLocaleString()}</span></div>
-               <div className="flex justify-between text-slate-600"><span className="font-sans">Ingresos Extra:</span><span>+ ${datosCierreCalculados.ingresosExtra.toLocaleString()}</span></div>
-               <div className="flex justify-between text-slate-600"><span className="font-sans">Retiros:</span><span>- ${datosCierreCalculados.retiros.toLocaleString()}</span></div>
-               <div className="border-t border-slate-200 my-2 pt-2 flex justify-between font-bold text-slate-800"><span className="font-sans uppercase">Total Sistema (Esperado):</span><span>${totalEsperado.toLocaleString()}</span></div>
-               <div className="flex justify-between font-bold text-blue-700"><span className="font-sans uppercase">Total Físico (Declarado):</span><span>${fisicoDeclarado.toLocaleString()}</span></div>
+               <div className="flex justify-between text-slate-600"><span className="font-sans">Fondo Inicial:</span><span>${datosCierreCalculados.fondoInicial.toLocaleString('es-CL')}</span></div>
+               <div className="flex justify-between text-slate-600"><span className="font-sans">Ventas Efectivo:</span><span>+ ${datosCierreCalculados.ventasEfectivo.toLocaleString('es-CL')}</span></div>
+               <div className="flex justify-between text-slate-600"><span className="font-sans">Abonos a Deuda:</span><span>+ ${(datosCierreCalculados.abonosCredito || 0).toLocaleString('es-CL')}</span></div>
+               <div className="flex justify-between text-slate-600"><span className="font-sans">Ingresos Extra:</span><span>+ ${datosCierreCalculados.ingresosExtra.toLocaleString('es-CL')}</span></div>
+               <div className="flex justify-between text-slate-600"><span className="font-sans">Retiros:</span><span>- ${datosCierreCalculados.retiros.toLocaleString('es-CL')}</span></div>
+               <div className="border-t border-slate-200 my-2 pt-2 flex justify-between font-bold text-slate-800"><span className="font-sans uppercase">Total Sistema (Esperado):</span><span>${totalEsperado.toLocaleString('es-CL')}</span></div>
+               <div className="flex justify-between font-bold text-blue-700"><span className="font-sans uppercase">Total Físico (Declarado):</span><span>${fisicoDeclarado.toLocaleString('es-CL')}</span></div>
                <div className={`flex justify-between font-bold p-3 rounded mt-4 ${diferencia === 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : diferencia > 0 ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                  <span className="font-sans uppercase">{diferencia === 0 ? 'Caja Cuadrada' : diferencia > 0 ? 'Sobrante detectado' : 'Faltante detectado'}</span>
-                 <span>${Math.abs(diferencia).toLocaleString()}</span>
+                 <span>${Math.abs(diferencia).toLocaleString('es-CL')}</span>
                </div>
             </div>
             <button onClick={handleConfirmarCierreFinal} className="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded shadow-sm mt-6 transition-colors text-sm uppercase tracking-wider">

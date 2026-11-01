@@ -87,13 +87,13 @@ export const useInventario = () => {
             try {
                 // ✨ 3. Uso de apiFetch para eliminar
                 const res = await apiFetch(`${API_URL}/${id}`, { method: 'DELETE' });
-                if(!res.ok) throw new Error("Error al eliminar en el servidor");
+                if(!res.ok) throw new Error(await leerError(res, "Error al eliminar en el servidor"));
 
                 setProductos(productos.filter(p => p.id !== id));
                 Swal.fire('¡Eliminado!', 'El producto ha sido borrado.', 'success');
             } catch (err: unknown) {
                 console.error("Error al eliminar:", err);
-                Swal.fire('Error', 'No se pudo eliminar el producto', 'error');
+                Swal.fire('No se pudo eliminar', err instanceof Error ? err.message : 'No se pudo eliminar el producto', 'error');
             }
         }
     };
@@ -136,7 +136,7 @@ export const useInventario = () => {
                 method: 'PATCH',
                 body: JSON.stringify(datosActualizados)
             });
-            if (!res.ok) throw new Error("Error al actualizar en el servidor");
+            if (!res.ok) throw new Error(await leerError(res, "Error al actualizar en el servidor"));
             
             // 🟢 Re-cargamos la lista completa para reflejar relaciones/categorías actualizadas desde la base de datos
             await cargarProductos(sucursalId);
@@ -144,7 +144,7 @@ export const useInventario = () => {
             Swal.fire('¡Éxito!', 'Producto actualizado correctamente', 'success');
         } catch (err: unknown) {
             console.error("Error al editar:", err);
-            Swal.fire('Error', 'No se pudo modificar el producto', 'error');
+            Swal.fire('No se pudo modificar', err instanceof Error ? err.message : 'No se pudo modificar el producto', 'error');
         }
     }; // 🟢 CORRECCIÓN: Faltaba esta llave de cierre de la función editarProducto
 

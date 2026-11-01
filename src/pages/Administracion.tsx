@@ -191,7 +191,7 @@ export const Administracion = () => {
   if (cargando) return <div className="text-center mt-20 font-medium text-slate-600 text-sm tracking-wide uppercase">Cargando panel de control...</div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8 font-sans text-slate-800 relative">
+    <div className="font-sans text-slate-800 relative">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b border-slate-200 pb-6">
         <div>
           <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">Panel de Administración</h1>
@@ -293,40 +293,40 @@ export const Administracion = () => {
                         
                         <div className="flex justify-between items-center border-b border-slate-100 pb-1.5 gap-2">
                           <span className="font-sans leading-tight">Fondo Inicial:</span>
-                          <span className="font-semibold text-slate-800 whitespace-nowrap shrink-0">${fondoInicial.toLocaleString()}</span>
+                          <span className="font-semibold text-slate-800 whitespace-nowrap shrink-0">${fondoInicial.toLocaleString('es-CL')}</span>
                         </div>
                         <div className="flex justify-between items-center border-b border-slate-100 pb-1.5 gap-2">
                           <span className="font-sans leading-tight">Ventas en Efectivo:</span>
-                          <span className="font-semibold text-slate-800 whitespace-nowrap shrink-0">+ ${ventasEfectivo.toLocaleString()}</span>
+                          <span className="font-semibold text-slate-800 whitespace-nowrap shrink-0">+ ${ventasEfectivo.toLocaleString('es-CL')}</span>
                         </div>
                         <div className="flex justify-between items-center border-b border-slate-100 pb-1.5 gap-2">
                           <span className="font-sans leading-tight">Ingresos Extra:</span>
-                          <span className="font-semibold text-slate-800 whitespace-nowrap shrink-0">+ ${ingresosExtra.toLocaleString()}</span>
+                          <span className="font-semibold text-slate-800 whitespace-nowrap shrink-0">+ ${ingresosExtra.toLocaleString('es-CL')}</span>
                         </div>
                         <div className="flex justify-between items-center border-b border-slate-100 pb-1.5 gap-2">
                           <span className="font-sans leading-tight">Abonos Crédito (Efectivo):</span>
-                          <span className="font-semibold text-slate-800 whitespace-nowrap shrink-0">+ ${abonosCredito.toLocaleString()}</span>
+                          <span className="font-semibold text-slate-800 whitespace-nowrap shrink-0">+ ${abonosCredito.toLocaleString('es-CL')}</span>
                         </div>
                         <div className="flex justify-between items-center border-b border-slate-100 pb-1.5 gap-2">
                           <span className="font-sans leading-tight">Retiros Operativos:</span>
-                          <span className="font-semibold text-red-700 whitespace-nowrap shrink-0">- ${retiros.toLocaleString()}</span>
+                          <span className="font-semibold text-red-700 whitespace-nowrap shrink-0">- ${retiros.toLocaleString('es-CL')}</span>
                         </div>
                         
                         <div className="flex justify-between items-center border-t border-slate-300 pt-2.5 mt-2 mb-4 text-sm gap-2">
                           <span className="font-sans font-bold text-slate-900 leading-tight">Total Físico en Caja:</span>
-                          <span className="font-bold text-emerald-600 whitespace-nowrap shrink-0">${totalEnCaja.toLocaleString()}</span>
+                          <span className="font-bold text-emerald-600 whitespace-nowrap shrink-0">${totalEnCaja.toLocaleString('es-CL')}</span>
                         </div>
 
                         <h3 className="font-sans font-semibold text-slate-700 mb-2 mt-4 uppercase tracking-wider text-[11px]">Otros Medios y Totales</h3>
                         
                         <div className="flex justify-between items-center border-b border-slate-100 pb-1.5 gap-2">
                           <span className="font-sans leading-tight">Transacciones con Tarjeta:</span>
-                          <span className="font-semibold text-slate-800 whitespace-nowrap shrink-0">+ ${ventasTarjeta.toLocaleString()}</span>
+                          <span className="font-semibold text-slate-800 whitespace-nowrap shrink-0">+ ${ventasTarjeta.toLocaleString('es-CL')}</span>
                         </div>
 
                         <div className="flex justify-between items-center border-b border-slate-100 pb-1.5 mt-1 gap-2">
                           <span className="font-sans leading-tight">Ventas a Crédito (Vales):</span>
-                          <span className="font-semibold text-slate-800 whitespace-nowrap shrink-0">+ ${ventasCredito.toLocaleString()}</span>
+                          <span className="font-semibold text-slate-800 whitespace-nowrap shrink-0">+ ${ventasCredito.toLocaleString('es-CL')}</span>
                         </div>
 
                         <div className="flex justify-between items-center bg-slate-100 p-3 rounded border border-slate-200 mt-4 text-sm gap-2">
@@ -334,7 +334,7 @@ export const Administracion = () => {
                             Venta Total Acumulada
                           </span>
                           <span className="font-bold text-slate-900 whitespace-nowrap shrink-0">
-                            ${ventaAcumulada.toLocaleString()}
+                            ${ventaAcumulada.toLocaleString('es-CL')}
                           </span>
                         </div>
 

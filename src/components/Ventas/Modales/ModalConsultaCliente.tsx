@@ -165,7 +165,7 @@ export const ModalConsultaCliente = ({
                     </span>
                     {cliente.deudaActual > 0 && (
                       <span className="text-[10px] text-red-600 font-semibold block mt-0.5">
-                        Deuda: ${cliente.deudaActual.toLocaleString()}
+                        Deuda: ${cliente.deudaActual.toLocaleString('es-CL')}
                       </span>
                     )}
                   </div>
@@ -189,15 +189,15 @@ export const ModalConsultaCliente = ({
               <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-200 text-center font-mono">
                 <div className="bg-white p-2 rounded border border-slate-200">
                   <span className="block text-[10px] font-sans font-semibold uppercase text-slate-500">Límite</span>
-                  <span className="font-bold text-slate-800">${clienteConsultado.limiteCredito.toLocaleString()}</span>
+                  <span className="font-bold text-slate-800">${clienteConsultado.limiteCredito.toLocaleString('es-CL')}</span>
                 </div>
                 <div className="bg-red-50 p-2 rounded border border-red-200">
                   <span className="block text-[10px] font-sans font-semibold uppercase text-red-600">Deuda Actual</span>
-                  <span className="font-bold text-red-700">${clienteConsultado.deudaActual.toLocaleString()}</span>
+                  <span className="font-bold text-red-700">${clienteConsultado.deudaActual.toLocaleString('es-CL')}</span>
                 </div>
                 <div className="bg-emerald-50 p-2 rounded border border-emerald-200">
                   <span className="block text-[10px] font-sans font-semibold uppercase text-emerald-600">Disponible</span>
-                  <span className="font-bold text-emerald-700">${(clienteConsultado.limiteCredito - clienteConsultado.deudaActual).toLocaleString()}</span>
+                  <span className="font-bold text-emerald-700">${(clienteConsultado.limiteCredito - clienteConsultado.deudaActual).toLocaleString('es-CL')}</span>
                 </div>
               </div>
             </div>

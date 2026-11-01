@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { esAdmin, limpiarSesion } from '../helpers/session';
+import { esAdmin, getSesion, limpiarSesion } from '../helpers/session';
 import { BannerSuscripcion } from './BannerSuscripcion';
 
 export const DashboardLayout = () => {
@@ -17,23 +17,27 @@ export const DashboardLayout = () => {
   const todasLasOpciones = [
     { name: 'Inicio', path: '/home' },
     { name: 'Caja', path: '/ventas' },
-    { name: 'Inventario', path: '/inventario' },
+    { name: 'Inventario', path: '/inventario', soloAdmin: true },
+    { name: 'Recetas', path: '/recetas', soloAdmin: true },
     { name: 'Movimientos', path: '/movimientos' },
-    
-    { name: 'Administración', path: '/administracion' },
+    { name: 'Administración', path: '/administracion', soloAdmin: true },
   ];
-  // El vendedor no ve Administración (el backend igualmente la bloquea)
-  const menuOptions = todasLasOpciones.filter((o) => o.path !== '/administracion' || esAdmin());
+  // El vendedor solo ve lo que puede usar (el backend igualmente bloquea el resto)
+  const menuOptions = todasLasOpciones.filter((o) => !('soloAdmin' in o && o.soloAdmin) || esAdmin());
+  const sesion = getSesion();
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-slate-50 overflow-hidden font-sans">
       
       {/* 📱 TOPBAR EXCLUSIVA PARA MÓVILES (Oculta en computadoras) */}
       <header className="md:hidden bg-slate-900 text-white h-16 px-4 flex items-center justify-between shadow-md z-30">
-        <h2 className="text-xl font-black tracking-wider">
-          <span className="text-blue-500">KIPI</span>
-        </h2>
+        <Link to="/home" className="flex items-center gap-2" aria-label="KIPI, ir al inicio">
+          <span className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center text-white font-bold tracking-tighter text-sm">KP</span>
+          <span className="text-xl font-bold tracking-tight text-white">KIPI<span className="text-blue-500">.</span></span>
+        </Link>
         <button 
+          aria-label={isSidebarOpen ? 'Cerrar menú' : 'Abrir menú'}
+          aria-expanded={isSidebarOpen}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 focus:outline-none transition-colors"
         >
@@ -67,15 +71,10 @@ export const DashboardLayout = () => {
       `}>
         {/* Título/Logo del sistema (Sólo visible en escritorios) */}
         <div className="hidden md:h-20 md:flex items-center justify-center border-b border-slate-700">
-          <h2 className="text-2xl font-black text-white tracking-wider">
-            
-            <div className="w-8 h-8 bg-slate-800 rounded flex items-center justify-center text-white font-bold tracking-tighter text-sm shadow-sm">
-              KP
-            </div>
-            <span className="text-xl font-bold tracking-tight text-blue-600">
-              KIPI<span className="text-slate-400">.</span>
-            </span>
-          </h2>
+          <Link to="/home" className="flex items-center gap-2" aria-label="KIPI, ir al inicio">
+            <span className="w-9 h-9 bg-slate-700 rounded-lg flex items-center justify-center text-white font-bold tracking-tighter text-sm shadow-sm">KP</span>
+            <span className="text-2xl font-bold tracking-tight text-white">KIPI<span className="text-blue-500">.</span></span>
+          </Link>
         </div>
 
         {/* Lista de Navegación */}
@@ -102,7 +101,13 @@ export const DashboardLayout = () => {
         </nav>
         
         {/* Botón de Cerrar Sesión al fondo */}
-        <div className="p-4 border-t border-slate-700">
+        <div className="p-4 border-t border-slate-700 space-y-3">
+          {sesion && (
+            <div className="px-1 text-xs leading-tight">
+              <p className="font-semibold text-slate-200 truncate">{sesion.usuario}</p>
+              <p className="text-slate-500 truncate">{sesion.empresa?.razonSocial}</p>
+            </div>
+          )}
           <button 
             onClick={handleLogout}
             className="w-full flex justify-center items-center gap-2 bg-slate-800 hover:bg-red-600 hover:text-white text-slate-400 py-3 rounded-lg transition-colors font-bold text-sm"
@@ -114,7 +119,7 @@ export const DashboardLayout = () => {
       </aside>
 
       {/* 🖥️ ÁREA DE CONTENIDO PRINCIPAL */}
-      <main className="flex-1 overflow-y-auto relative p-4 sm:p-6 lg:p-8">
+      <main id="contenido" className="flex-1 overflow-y-auto relative p-4 sm:p-6 lg:p-8 bg-slate-50">
         <BannerSuscripcion />
         <Outlet />
       </main>

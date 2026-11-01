@@ -14,16 +14,16 @@ export const DesglosePago = ({ neto, iva, totalBruto, carritoVacio, onProcesarCo
         <div className="space-y-3 mb-6 font-mono">
           <div className="flex justify-between text-slate-600">
             <span className="font-sans font-medium text-slate-700">Neto</span>
-            <span>${neto.toLocaleString()}</span>
+            <span>${neto.toLocaleString('es-CL')}</span>
           </div>
           <div className="flex justify-between text-slate-600">
             <span className="font-sans font-medium text-slate-700">IVA (19%)</span>
-            <span>${iva.toLocaleString()}</span>
+            <span>${iva.toLocaleString('es-CL')}</span>
           </div>
           <div className="border-t border-slate-200 pt-3 mt-3">
             <div className="flex justify-between items-center text-lg font-bold text-slate-900">
               <span className="font-sans uppercase tracking-wide">Total a Pagar</span>
-              <span>${totalBruto.toLocaleString()}</span>
+              <span>${totalBruto.toLocaleString('es-CL')}</span>
             </div>
           </div>
         </div>

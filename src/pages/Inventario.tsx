@@ -85,6 +85,7 @@ export const Inventario = () => {
 
   const [showModalProducto, setShowModalProducto] = useState(false);
   const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [guardando, setGuardando] = useState(false);
   
   const [mostrarCamaraBusqueda, setMostrarCamaraBusqueda] = useState(false);
   const [mostrarCamaraFormulario, setMostrarCamaraFormulario] = useState(false);
@@ -298,13 +299,32 @@ export const Inventario = () => {
     });
   };
 
+  // Escape cierra el formulario
+  useEffect(() => {
+    if (!showModalProducto) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') cerrarModal(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showModalProducto]);
+
   const generarCodigoProvisional = () => `PROV-${Date.now()}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!form.descripcion || !form.precio || !form.stockCritico) {
-      return Swal.fire("Información incompleta", "Por favor, complete los campos obligatorios del formulario.", "warning");
+    if (guardando) return;
+    if (!form.descripcion.trim() || form.precio === '' || form.stockCritico === '') {
+      return Swal.fire("Información incompleta", "Completa nombre, precio y límite de stock crítico.", "warning");
+    }
+    const numeros = [
+      ['El precio', form.precio], ['El stock', form.stock === '' ? '0' : form.stock],
+      ['El stock crítico', form.stockCritico], ['El costo', form.costo === '' ? '0' : form.costo],
+    ] as const;
+    for (const [nombre, valor] of numeros) {
+      const n = Number(valor);
+      if (!Number.isFinite(n) || n < 0) {
+        return Swal.fire("Valor no válido", `${nombre} debe ser un número igual o mayor a cero.`, "warning");
+      }
     }
 
     const codigoFinal = form.codigoBarras.trim() === "" ? generarCodigoProvisional() : form.codigoBarras;
@@ -314,7 +334,7 @@ export const Inventario = () => {
       : null;
 
     const datosProducto = {
-      descripcion: form.descripcion,
+      descripcion: form.descripcion.trim(),
       precio: Number(form.precio),
       stock: Number(form.stock),
       costo: form.costo === '' ? null : Number(form.costo),
@@ -325,21 +345,26 @@ export const Inventario = () => {
       categoria: categoriaSeleccionada ? { id: categoriaSeleccionada.id, nombre: categoriaSeleccionada.nombre } : undefined
     };
 
-    if (editandoId) {
-      await editarProducto(editandoId, datosProducto);
-    } else {
-      const ingredientesParaEnviar = !form.esInsumo 
-        ? listaIngredientesSeleccionados.map(i => ({ insumoId: i.insumoId, cantidad: i.cantidad })) 
-        : [];
-      await agregarProducto(datosProducto, ingredientesParaEnviar);
+    setGuardando(true);
+    try {
+      if (editandoId) {
+        await editarProducto(editandoId, datosProducto);
+      } else {
+        const ingredientesParaEnviar = !form.esInsumo 
+          ? listaIngredientesSeleccionados.map(i => ({ insumoId: i.insumoId, cantidad: i.cantidad })) 
+          : [];
+        await agregarProducto(datosProducto, ingredientesParaEnviar);
+      }
+      cerrarModal();
+    } finally {
+      setGuardando(false);
     }
-    cerrarModal();
   };
 
   if (usuarioRol !== 'admin') return null;
 
   return (
-    <div className='min-h-screen bg-slate-50 flex flex-col items-center p-8 font-sans text-slate-800'>
+    <div className='flex flex-col items-center font-sans text-slate-800'>
       <div className="w-full max-w-6xl mb-8 border-b border-slate-200 pb-4">
         <h1 className='text-3xl font-semibold text-slate-900 tracking-tight'>Gestión de Inventario</h1>
         <p className="text-slate-500 text-sm mt-1">Control de stock, insumos y productos para venta.</p>
@@ -348,9 +373,10 @@ export const Inventario = () => {
       <PanelStockSucursal sucursalId={sucursalId} onCambiarSucursal={setSucursalId} />
 
       <div className='w-full max-w-6xl mb-6 space-y-4'>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <input 
             type="text"
+            aria-label="Buscar producto"
             placeholder='Buscar por código o descripción...'
             className='w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white'
             value={busqueda}
@@ -371,7 +397,7 @@ export const Inventario = () => {
           </button>
           
           <select 
-            className="w-64 p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white cursor-pointer"
+            className="w-full sm:w-64 p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white cursor-pointer"
             value={filtroCategoria}
             onChange={(e) => setFiltroCategoria(e.target.value === 'todas' ? 'todas' : Number(e.target.value))}
           >
@@ -407,7 +433,8 @@ export const Inventario = () => {
           </button>
         </div>
         
-        <table className='w-full text-left text-sm'>
+        <div className="overflow-x-auto">
+        <table className='w-full min-w-[720px] text-left text-sm'>
           <thead className='bg-slate-100 uppercase text-xs font-semibold text-slate-600 border-b border-slate-200'>
             <tr>
               <th className='px-6 py-3'>ID</th>
@@ -436,26 +463,27 @@ export const Inventario = () => {
                       {producto.esInsumo && <span className="ml-2 bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wider">INSUMO</span>}
                     </td>
                     <td className='px-6 py-3.5 text-slate-600'>{producto.categoria?.nombre || <span className="italic text-slate-400">Sin categoría</span>}</td>
-                    <td className='px-6 py-3.5 font-medium text-slate-900'>${producto.precio.toLocaleString()}</td>
+                    <td className='px-6 py-3.5 font-medium text-slate-900'>${producto.precio.toLocaleString('es-CL')}</td>
                     <td className={`px-6 py-3.5 font-semibold ${esCritico ? 'text-red-600' : 'text-slate-800'}`}>
                       {stockVisual} <span className='text-xs font-normal text-slate-500'>{producto.unidadMedida}</span>
                     </td>
-                    <td className='px-6 py-3.5 flex justify-center gap-2'>
+                    <td className='px-6 py-3.5'><div className="flex justify-center gap-2 whitespace-nowrap">
                       <button onClick={() => manejarEntradaStock(producto)} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded font-medium text-xs transition-colors border border-slate-300" title="Ingresar Stock">Ajustar Stock</button>
                       <button onClick={() => abrirEdicion(producto)} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded font-medium text-xs transition-colors border border-slate-300">Editar</button>
                       <button onClick={() => eliminarProducto(producto.id)} className="text-red-600 hover:text-red-800 px-2 py-1 font-medium text-xs transition-colors underline">Eliminar</button>
-                    </td>
+                    </div></td>
                   </tr>
                 );
               })
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {showModalProducto && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className='w-full max-w-md bg-white p-6 rounded shadow-lg border border-slate-200 max-h-[90vh] overflow-y-auto text-sm'>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) cerrarModal(); }}>
+          <div role="dialog" aria-modal="true" aria-label={editandoId ? 'Modificar registro' : 'Nuevo registro'} className='w-full max-w-md bg-white p-6 rounded shadow-lg border border-slate-200 max-h-[90vh] overflow-y-auto text-sm'>
             <h2 className='text-lg font-semibold mb-4 text-slate-900 border-b border-slate-100 pb-2'>{editandoId ? 'Modificar Registro' : 'Nuevo Registro'}</h2>
             
             <form className='flex flex-col gap-3' onSubmit={handleSubmit}>
@@ -551,8 +579,8 @@ export const Inventario = () => {
                 </div>
               )}
 
-              <button type='submit' className="bg-slate-800 hover:bg-slate-900 transition-colors text-white font-medium py-2.5 rounded shadow-sm mt-2 text-sm">
-                {editandoId ? 'Guardar Cambios' : 'Confirmar Registro'}
+              <button type='submit' disabled={guardando} className="bg-slate-800 hover:bg-slate-900 transition-colors text-white font-medium py-2.5 rounded shadow-sm mt-2 text-sm disabled:opacity-60">
+                {guardando ? 'Guardando…' : editandoId ? 'Guardar Cambios' : 'Confirmar Registro'}
               </button>
               <button type="button" onClick={cerrarModal} className="text-slate-500 hover:text-slate-800 transition-colors text-xs font-medium py-1 text-center">Cancelar</button>
             </form>
