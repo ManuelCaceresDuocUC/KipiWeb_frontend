@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { esAdmin, limpiarSesion } from '../helpers/session';
+import { BannerSuscripcion } from './BannerSuscripcion';
 
 export const DashboardLayout = () => {
   const navigate = useNavigate();
@@ -114,6 +115,7 @@ export const DashboardLayout = () => {
 
       {/* 🖥️ ÁREA DE CONTENIDO PRINCIPAL */}
       <main className="flex-1 overflow-y-auto relative p-4 sm:p-6 lg:p-8">
+        <BannerSuscripcion />
         <Outlet />
       </main>
       

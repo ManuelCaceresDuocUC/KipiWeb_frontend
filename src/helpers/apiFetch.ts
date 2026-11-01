@@ -1,8 +1,12 @@
 import { getToken, limpiarSesion } from './session';
 
+/** Evento global: el backend respondió 402 (cuenta en solo lectura); el layout refresca el estado. */
+export const EVENTO_SUSCRIPCION = 'suscripcion-restringida';
+
 /**
  * fetch con JWT automático.
  * - 401: sesión vencida o inválida → se limpia y se manda a /login.
+ * - 402: suscripción suspendida/solo lectura → se avisa al layout (evento) y lo maneja quien llama.
  * - 403: falta de permiso para esa acción → NO se expulsa; lo maneja quien llama.
  */
 export const apiFetch = async (endpoint: string, opciones: RequestInit = {}) => {
@@ -23,6 +27,10 @@ export const apiFetch = async (endpoint: string, opciones: RequestInit = {}) => 
     if (window.location.pathname !== '/login') {
       window.location.replace('/login');
     }
+  }
+
+  if (respuesta.status === 402) {
+    window.dispatchEvent(new CustomEvent(EVENTO_SUSCRIPCION));
   }
 
   return respuesta;
