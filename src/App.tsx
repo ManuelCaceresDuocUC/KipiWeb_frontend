@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LandingKIPI } from './pages/LandingKIPI'; // ✨ Importación de tu nueva portada
+import { Planes } from './pages/Planes';
 import { Login } from './pages/Login';
 import { Home } from './pages/Home';
 import { Ventas } from './pages/Ventas';
@@ -19,6 +20,7 @@ function App() {
       <Routes>
         {/* 🔓 Rutas Públicas */}
         <Route path="/" element={<LandingKIPI />} /> {/* ✨ Portada pública de KIPI */}
+        <Route path="/planes" element={<Planes />} />
         <Route path="/login" element={<Login />} />
         <Route path="/registroempresa" element={<RegistroEmpresa />} />
         <Route path="/registro-exitoso" element={<RegistroExitoso />} />

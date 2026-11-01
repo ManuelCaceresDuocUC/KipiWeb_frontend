@@ -4,6 +4,8 @@ import { Building2, User, Plus, Trash2, ShieldAlert, ArrowLeft, Loader2, Store, 
 import Swal from 'sweetalert2'; 
 import { esRutValido } from '../helpers/rut';
 import { leerError } from '../helpers/apiFetch';
+import { PLAN_PRINCIPAL, formatoPrecio } from '../config/planes';
+import { Logo } from '../components/publico/Logo';
 
 interface SucursalItem {
   id: string; // Identificador temporal para relacionar en el formulario
@@ -242,23 +244,33 @@ export const RegistroEmpresa = () => {
       {loading && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-white">
           <Loader2 className="w-10 h-10 animate-spin mb-2" />
-          <p className="font-semibold text-sm">Conectando con Flow (Webpay)...</p>
+          <p className="font-semibold text-sm">Conectando con Flow…</p>
         </div>
       )}
 
       <div className="w-full max-w-4xl">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-8">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4 mb-6">
           <div>
             <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors mb-1">
               <ArrowLeft className="w-4 h-4" />
               <span>Volver al Inicio</span>
             </Link>
-            <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">Registro de Empresa</h1>
-            <p className="text-slate-500 text-sm mt-0.5">Plan Mensual SaaS - $30.000 CLP / mes</p>
+            <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">Crea tu cuenta KIPI</h1>
+            <p className="text-slate-500 text-sm mt-0.5">Completa los datos de tu empresa. El último paso es inscribir tu tarjeta de forma segura con Flow.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-slate-800 rounded flex items-center justify-center text-white font-bold tracking-tighter text-sm shadow-sm">KP</div>
-            <span className="text-xl font-bold tracking-tight text-slate-900">KIPI<span className="text-slate-400">.</span></span>
+          <Logo />
+        </div>
+
+        {/* Resumen del plan (monto desde config/planes.ts: debe coincidir con el plan de Flow) */}
+        <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Tu plan</p>
+            <p className="font-semibold text-slate-900">{PLAN_PRINCIPAL.nombre} · todo incluido</p>
+            <Link to="/planes" target="_blank" className="text-xs text-slate-500 underline underline-offset-2 hover:text-slate-800">Ver qué incluye</Link>
+          </div>
+          <div className="sm:text-right">
+            <p className="text-2xl font-bold text-slate-900">{formatoPrecio(PLAN_PRINCIPAL.precioMensual)} <span className="text-sm font-normal text-slate-500">/ mes</span></p>
+            <p className="text-xs text-slate-500">Cobro mensual automático con tarjeta (Flow)</p>
           </div>
         </div>
 
@@ -279,7 +291,7 @@ export const RegistroEmpresa = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">RUT Empresa *</label>
-                <input required type="text" name="rut_empresa" value={empresa.rut_empresa} onChange={handleEmpresaChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+                <input required type="text" name="rut_empresa" placeholder="Ej: 76.123.456-7" autoComplete="off" value={empresa.rut_empresa} onChange={handleEmpresaChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Razón Social *</label>
@@ -352,7 +364,7 @@ export const RegistroEmpresa = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Correo electrónico *</label>
-                <input required type="email" name="correo" value={admin.correo} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+                <input required type="email" name="correo" autoComplete="email" value={admin.correo} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
               </div>
             </div>
 
@@ -363,13 +375,13 @@ export const RegistroEmpresa = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Contraseña *</label>
-                <input required type="password" name="contrasena" value={admin.contrasena} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+                <input required type="password" name="contrasena" autoComplete="new-password" value={admin.contrasena} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Confirmar contraseña *</label>
-              <input required type="password" name="contrasenaConfirmacion" value={admin.contrasenaConfirmacion} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+              <input required type="password" name="contrasenaConfirmacion" autoComplete="new-password" value={admin.contrasenaConfirmacion} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
             </div>
 
             {admin.contrasena && (
@@ -446,8 +458,11 @@ export const RegistroEmpresa = () => {
               disabled={loading}
               className="w-full bg-slate-900 text-white font-bold py-3 rounded hover:bg-slate-800 transition flex items-center justify-center gap-2 shadow-md"
             >
-              Continuar al Pago con Flow
+              Continuar al pago con Flow
             </button>
+            <p className="text-center text-xs text-slate-500 mt-3">
+              Al continuar inscribirás tu tarjeta en el sitio seguro de Flow. KIPI no almacena los datos de tu tarjeta.
+            </p>
           </div>
         </div>
       </div>

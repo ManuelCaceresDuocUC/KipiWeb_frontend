@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useLogin } from "../hooks/useLogin";
 import Swal from "sweetalert2";
 import { ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom"; // ✨ Corrección: Link debe venir de react-router-dom
+import { Link } from "react-router-dom";
+import { Logo } from "../components/publico/Logo"; // ✨ Corrección: Link debe venir de react-router-dom
 
 export const Login = () => {
   const { logearUsuario } = useLogin();
@@ -47,16 +48,9 @@ export const Login = () => {
             </Link>
           </div>
 
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 mb-1">
-            <div className="w-8 h-8 bg-slate-800 rounded flex items-center justify-center text-white font-bold tracking-tighter text-sm shadow-sm">
-              KP
-            </div>
-            <span className="text-xl font-bold tracking-tight text-slate-900">
-              KIPI<span className="text-slate-400">.</span>
-            </span>
-          </h1>
+          <div className="flex justify-center mb-2"><Logo /></div>
           <p className="text-slate-500 font-normal text-xs uppercase tracking-wider">
-            Portal de Acceso Corporativo
+            Ingresa a tu cuenta
           </p>
         </div>
 
@@ -68,7 +62,7 @@ export const Login = () => {
             <input
               type="text"
               className="w-full p-3 bg-slate-50 border border-slate-300 rounded focus:bg-white focus:border-slate-500 outline-none transition-all text-slate-800 font-medium"
-              placeholder="Ingrese su usuario..."
+              placeholder="Ingrese su usuario..." autoComplete="username" autoFocus
               value={form.usuario}
               onChange={(e) => setForm({ ...form, usuario: e.target.value })}
             />
@@ -81,7 +75,7 @@ export const Login = () => {
             <input
               type="password"
               className="w-full p-3 bg-slate-50 border border-slate-300 rounded focus:bg-white focus:border-slate-500 outline-none transition-all text-slate-800 font-medium"
-              placeholder="••••••••"
+              placeholder="••••••••" autoComplete="current-password"
               value={form.contrasena}
               onChange={(e) => setForm({ ...form, contrasena: e.target.value })}
             />
@@ -94,6 +88,11 @@ export const Login = () => {
             Iniciar Sesión
           </button>
         </form>
+
+        <p className="text-center text-xs text-slate-500 mt-6">
+          ¿Aún no tienes cuenta?{' '}
+          <Link to="/registroempresa" className="font-semibold text-slate-800 underline underline-offset-2">Crear cuenta</Link>
+        </p>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
+import { enlaceWhatsApp } from '../config/contacto';
 import { Link } from 'react-router-dom';
 
 import { apiFetch, leerError } from '../helpers/apiFetch';
@@ -326,7 +327,7 @@ export const ConfiguracionDTE = () => {
             </p>
           </div>
           <a
-            href="https://wa.me/56900000000?text=Hola,%20necesito%20ayuda%20para%20habilitar%20las%20boletas%20electronicas%20en%20mi%20POS"
+            href={enlaceWhatsApp('Hola, necesito ayuda para habilitar las boletas electrónicas en mi POS')}
             target="_blank"
             rel="noopener noreferrer"
             className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2.5 px-5 rounded text-xs uppercase tracking-wider shrink-0 transition-colors"

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CONTACTO, enlaceCorreo, enlaceWhatsApp } from '../config/contacto';
 
 // ==========================================
 // MOCK DATA: FÁCIL DE MODIFICAR Y CONFIGURAR
@@ -140,28 +141,30 @@ export const Home = () => {
         </button>
 
         <button
-          onClick={() => navigate('/productos')}
+          onClick={() => navigate(esAdmin ? '/inventario' : '/movimientos')}
           className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 p-4 rounded-xl shadow-sm font-semibold text-sm flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
         >
           <span className="text-3xl group-hover:scale-110 transition-transform">🔍</span>
-          Consultar Stock
+          {esAdmin ? 'Inventario' : 'Movimientos'}
         </button>
 
         <button
-          onClick={() => navigate('/caja/cierre')}
+          onClick={() => navigate('/ventas')}
           className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 p-4 rounded-xl shadow-sm font-semibold text-sm flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
         >
           <span className="text-3xl group-hover:scale-110 transition-transform">🔒</span>
-          Cierre de Caja
+          Caja y Turnos
         </button>
 
-        <button
-          onClick={() => alert('Abriendo centro de ayuda KIPI...')}
+        <a
+          href={enlaceWhatsApp('Hola, necesito ayuda con KIPI')}
+          target="_blank"
+          rel="noopener noreferrer"
           className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 p-4 rounded-xl shadow-sm font-semibold text-sm flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
         >
           <span className="text-3xl group-hover:scale-110 transition-transform">🎧</span>
           Soporte KIPI
-        </button>
+        </a>
       </div>
 
       {/* 3. SECCIÓN PRINCIPAL: VIDEO + NOVEDADES (solo con contenido real) */}
@@ -267,17 +270,19 @@ export const Home = () => {
         </div>
         <div className="flex gap-3">
           <a
-            href="mailto:soporte@kipi.cl"
+            href={enlaceCorreo('Soporte KIPI')}
             className="bg-slate-800 hover:bg-slate-700 text-xs font-semibold px-4 py-2.5 rounded-lg border border-slate-700 transition-all"
           >
             ✉️ Contactar Soporte
           </a>
-          <button
-            onClick={() => alert('Atención Telefónica: +56 9 1234 5678')}
+          <a
+            href={enlaceWhatsApp('Hola, necesito ayuda con KIPI')}
+            target="_blank"
+            rel="noopener noreferrer"
             className="bg-blue-600 hover:bg-blue-500 text-xs font-semibold px-4 py-2.5 rounded-lg transition-all cursor-pointer"
           >
-            📞 Mesa de Ayuda
-          </button>
+            💬 WhatsApp {CONTACTO.telefono}
+          </a>
         </div>
       </div>
 
