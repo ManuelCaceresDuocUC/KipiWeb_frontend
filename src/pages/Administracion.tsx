@@ -11,6 +11,7 @@ import { useNotas } from '../hooks/useNotas';
 import { getSesion } from '../helpers/session';
 import { apiFetch, leerError } from '../helpers/apiFetch';
 import { EstadoCuentaCliente } from '../components/EstadoCuentaCliente';
+import { GestionEquipo } from '../components/GestionEquipo';
 // Interfaz para extender los campos opcionales/dinámicos de Cuadratura sin recurrir a 'any'
 interface CuadraturaExtendida {
   id: number | string;
@@ -43,47 +44,9 @@ export const Administracion = () => {
 
   // 2. Consumo de Hooks
   const { usuarioRol,
-    cargando, metricas, empleados, setEmpleados, cuadraturas, 
+    cargando, metricas, empleados, cuadraturas, 
     masVendidos, periodo, setPeriodo 
   } = useAdminPanel(API_URL, empresaId);
-
-  // Gestión de cuentas del equipo: el admin restablece contraseñas y registra correos de recuperación
-  const esCorreoReal = (c?: string | null) => Boolean(c) && !String(c).toLowerCase().endsWith('.local');
-
-  const cambiarClaveEmpleado = async (id: number, nombre: string) => {
-    const { value: nueva } = await Swal.fire({
-      title: `Nueva contraseña para "${nombre}"`,
-      input: 'password',
-      inputLabel: 'Mínimo 8 caracteres. Entrégasela al usuario por un canal seguro.',
-      inputAttributes: { autocomplete: 'new-password' },
-      showCancelButton: true,
-      confirmButtonText: 'Guardar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#1E293B',
-      inputValidator: (v) => (!v || v.length < 8 ? 'La contraseña debe tener al menos 8 caracteres.' : undefined),
-    });
-    if (!nueva) return;
-    const r = await apiFetch(`${API_URL}/usuarios/${id}/contrasena`, { method: 'PUT', body: JSON.stringify({ contrasena: nueva }) });
-    if (r.ok) Swal.fire({ icon: 'success', title: 'Contraseña actualizada', confirmButtonColor: '#1E293B' });
-    else Swal.fire('Error', await leerError(r, 'No se pudo actualizar la contraseña.'), 'error');
-  };
-
-  const cambiarCorreoEmpleado = async (id: number, nombre: string, actual?: string | null) => {
-    const { value: correo } = await Swal.fire({
-      title: `Correo de "${nombre}"`,
-      input: 'email',
-      inputValue: esCorreoReal(actual) ? actual ?? '' : '',
-      inputLabel: 'Con un correo real, el usuario podrá recuperar su contraseña por sí mismo.',
-      showCancelButton: true,
-      confirmButtonText: 'Guardar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#1E293B',
-    });
-    if (!correo) return;
-    const r = await apiFetch(`${API_URL}/usuarios/${id}/correo`, { method: 'PUT', body: JSON.stringify({ correo }) });
-    if (r.ok) setEmpleados((prev) => prev.map((e) => (e.id === id ? { ...e, correo } : e)));
-    else Swal.fire('Error', await leerError(r, 'No se pudo actualizar el correo.'), 'error');
-  };
 
   const { 
     mostrarModalClientes, setMostrarModalClientes, cargandoClientes, 
@@ -474,44 +437,7 @@ export const Administracion = () => {
           </div>
 
           {/* PERSONAL DEL SISTEMA */}
-          <div className="bg-white rounded shadow-sm border border-slate-200 p-6">
-            <h2 className="text-base font-semibold text-slate-800 uppercase tracking-wide mb-4 border-b border-slate-100 pb-3">Personal del Sistema</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-medium">
-                  <tr>
-                    <th className="p-3">ID</th>
-                    <th className="p-3">Nombre de Usuario</th>
-                    <th className="p-3">Rol Asignado</th>
-                    <th className="p-3">Correo</th>
-                    <th className="p-3 text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {empleados.map(emp => (
-                    <tr key={emp.id} className="hover:bg-slate-50">
-                      <td className="p-3 text-slate-500 font-mono">#{emp.id}</td>
-                      <td className="p-3 font-medium text-slate-800">{emp.usuario}</td>
-                      <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                          emp.rol === 'admin' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {emp.rol.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="p-3 text-slate-600 text-xs">
-                        {esCorreoReal(emp.correo) ? emp.correo : <span className="text-slate-400">Sin correo</span>}
-                      </td>
-                      <td className="p-3 text-right whitespace-nowrap space-x-3">
-                        <button onClick={() => cambiarCorreoEmpleado(emp.id, emp.usuario, emp.correo)} className="text-xs font-semibold text-slate-600 hover:text-slate-900 underline underline-offset-2">Correo</button>
-                        <button onClick={() => cambiarClaveEmpleado(emp.id, emp.usuario)} className="text-xs font-semibold text-slate-600 hover:text-slate-900 underline underline-offset-2">Cambiar contraseña</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <GestionEquipo />
 
         </div>
 

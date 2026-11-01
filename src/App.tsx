@@ -18,10 +18,14 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { RegistroEmpresa } from './pages/RegistroEmpresa';
 import { RegistroExitoso } from './pages/RegistroExitoso';
 import { ConfiguracionDTE } from './pages/ConfiguracionDTE';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { ScrollToTop } from './components/ScrollToTop';
 
 function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
+      <ErrorBoundary>
       <Routes>
         {/* 🔓 Rutas Públicas */}
         <Route path="/" element={<LandingKIPI />} /> {/* ✨ Portada pública de KIPI */}
@@ -52,6 +56,7 @@ function App() {
         {/* Redirección de seguridad para cualquier ruta que no exista */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }

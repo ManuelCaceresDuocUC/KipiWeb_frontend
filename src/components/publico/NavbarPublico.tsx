@@ -33,7 +33,7 @@ export const NavbarPublico = () => {
 
   return (
     <header
-      className={`fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur border-b transition-shadow ${
+      className={`fixed top-0 inset-x-0 z-50 bg-white border-b transition-shadow ${
         conSombra ? 'border-slate-200 shadow-sm' : 'border-transparent'
       }`}
     >

@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { NavbarPublico } from './NavbarPublico';
 import { FooterPublico } from './FooterPublico';
 
@@ -11,7 +11,6 @@ export interface SeccionLegal {
 export const LayoutLegal = ({
   titulo, vigencia, intro, secciones, children,
 }: { titulo: string; vigencia: string; intro?: string; secciones: SeccionLegal[]; children?: ReactNode }) => {
-  useEffect(() => window.scrollTo({ top: 0 }), []);
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-800">

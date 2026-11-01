@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { CheckCircle2, Loader2, Mail, MessageCircle, Phone } from 'lucide-react';
 import { NavbarPublico } from '../components/publico/NavbarPublico';
 import { FooterPublico } from '../components/publico/FooterPublico';
@@ -11,7 +11,6 @@ const campo = 'w-full p-3 rounded-lg border border-slate-300 bg-white text-sm ou
 
 /** Formulario de contacto: avisa al equipo de KIPI y envía una copia de confirmación al consultante. */
 export const Contacto = () => {
-  useEffect(() => window.scrollTo({ top: 0 }), []);
 
   const [form, setForm] = useState({ nombre: '', correo: '', telefono: '', asunto: '', mensaje: '', sitioWeb: '' });
   const [captcha, setCaptcha] = useState('');

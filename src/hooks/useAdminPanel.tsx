@@ -78,7 +78,6 @@ export const useAdminPanel = (API_URL: string, empresaId: string) => {
     cargando, 
     metricas, 
     empleados, 
-    setEmpleados,
     cuadraturas, 
     masVendidos, // <- Soluciona error 1
     periodo,     // <- Soluciona error 2

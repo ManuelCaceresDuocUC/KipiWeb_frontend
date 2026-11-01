@@ -5,7 +5,7 @@ export interface Metricas {
   ticketPromedio: number;
   costoInventario: number;
 }
-export interface Empleado { id: number; usuario: string; rol: string; correo?: string | null; }
+export interface Empleado { id: number; usuario: string; rol: string; correo?: string | null; activo?: boolean; }
 export interface Nota { id: number; texto: string; }
 export interface ProductoMasVendido { nombre: string; total: number; }
 export interface Categoria { id: number; nombre: string; }

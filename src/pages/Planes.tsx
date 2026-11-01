@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Minus } from 'lucide-react';
 import { NavbarPublico } from '../components/publico/NavbarPublico';
@@ -11,7 +10,6 @@ const CATEGORIAS = [...new Set(CARACTERISTICAS.map((c) => c.categoria))];
 
 /** Página pública de planes: cards + tabla comparativa (se ajusta sola si se agregan planes en config/planes.ts). */
 export const Planes = () => {
-  useEffect(() => window.scrollTo({ top: 0 }), []);
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-800">
