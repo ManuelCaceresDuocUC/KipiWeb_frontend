@@ -12,6 +12,7 @@ import { getSesion } from '../helpers/session';
 import { apiFetch, leerError } from '../helpers/apiFetch';
 import { EstadoCuentaCliente } from '../components/EstadoCuentaCliente';
 import { GestionEquipo } from '../components/GestionEquipo';
+import { RegistroActividad } from '../components/RegistroActividad';
 // Interfaz para extender los campos opcionales/dinámicos de Cuadratura sin recurrir a 'any'
 interface CuadraturaExtendida {
   id: number | string;
@@ -438,6 +439,8 @@ export const Administracion = () => {
 
           {/* PERSONAL DEL SISTEMA */}
           <GestionEquipo />
+
+          <RegistroActividad />
 
         </div>
 
