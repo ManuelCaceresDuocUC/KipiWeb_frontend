@@ -187,13 +187,30 @@ export const reimprimirBoleta = async (ventaId: number) => {
   }
 };
 
-/** Emite o consulta la nota de crédito de una venta anulada (solo administradores). */
+/** Imprime el PDF de la nota de crédito (o lo descarga si no hay impresión directa). */
+export const imprimirNotaCredito = async (pdf: string, folio: number | null | undefined, ventaId: number) => {
+  if (!(await imprimirPdfBase64(pdf))) descargarPdfBase64(pdf, `NotaCredito_${folio ?? ventaId}.pdf`);
+};
+
+/** Reimprime la copia guardada de la nota de crédito (solo administradores). */
+export const reimprimirNotaCredito = async (ventaId: number) => {
+  try {
+    const pdf = await pedirPdf(`/ventas/${ventaId}/nota-credito`, 'No se pudo abrir la nota de crédito');
+    if (!pdf) return;
+    await imprimirNotaCredito(pdf, null, ventaId);
+  } catch (e) {
+    error(e, 'No se pudo reimprimir la nota de crédito');
+  }
+};
+
+/** Emite o consulta la nota de crédito de una venta anulada (solo administradores). Imprime el PDF si sale. */
 export const reintentarNotaCredito = async (ventaId: number) => {
   try {
     Swal.fire({ title: 'Procesando nota de crédito...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     const res = await apiFetch(`${API()}/ventas/${ventaId}/nota-credito/reintentar`, { method: 'POST' });
     if (!res.ok) throw new Error(await leerError(res, 'No se pudo procesar la nota de crédito'));
     const r: EstadoEmision = await res.json();
+    if (r.estado === 'EMITIDO' && r.pdf) await imprimirNotaCredito(r.pdf, r.folio, ventaId);
     await Swal.fire({
       icon: r.estado === 'EMITIDO' ? 'success' : r.estado === 'NO_APLICA' ? 'info' : 'warning',
       title: r.estado === 'EMITIDO' ? `Nota de crédito emitida${r.folio ? ` (N° ${r.folio})` : ''}` : 'Nota de crédito',

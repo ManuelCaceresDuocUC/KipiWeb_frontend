@@ -4,7 +4,7 @@ import { useMovimiento, type Movimiento } from "../hooks/useMovimiento";
 import { apiFetch, leerError } from "../helpers/apiFetch";
 import {
     adjuntarComprobante, enviarTicketPorCorreo, reimprimirBoleta, reimprimirTicket, reimprimirVale, reintentarBoleta,
-    reintentarNotaCredito, verComprobantes, ETIQUETA_DTE,
+    reintentarNotaCredito, reimprimirNotaCredito, imprimirNotaCredito, verComprobantes, ETIQUETA_DTE,
 } from "../helpers/documentosVenta";
 
 type TipoFiltro = 'hoy' | 'dia' | 'periodo' | 'semana' | 'mes';
@@ -70,7 +70,8 @@ export const Movimientos = () => {
             const r = await res.json();
             setVentaSeleccionada(null);
             aplicarFiltro();
-            const nc = r.notaCredito as { estado?: string; folio?: number | null; aviso?: string } | undefined;
+            const nc = r.notaCredito as { estado?: string; folio?: number | null; aviso?: string; pdf?: string } | undefined;
+            if (nc?.estado === 'EMITIDO' && nc.pdf) await imprimirNotaCredito(nc.pdf, nc.folio, venta.id);
             const lineaNc = nc?.estado === 'EMITIDO'
                 ? `Nota de crédito emitida${nc.folio ? ` (N° ${nc.folio})` : ''}.`
                 : (nc?.aviso || '');
@@ -322,6 +323,14 @@ export const Movimientos = () => {
                                             className="mt-2 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded font-medium"
                                         >
                                             Nota de crédito: ver estado / reintentar
+                                        </button>
+                                    )}
+                                    {ventaSeleccionada.dteEstado === 'EMITIDO' && ventaSeleccionada.estado === 'ANULADA' && esAdmin && (
+                                        <button
+                                            onClick={() => reimprimirNotaCredito(ventaSeleccionada.id)}
+                                            className="mt-2 ml-2 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded font-medium"
+                                        >
+                                            Reimprimir nota de crédito
                                         </button>
                                     )}
                                 </div>
