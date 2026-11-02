@@ -11,10 +11,10 @@ export const LEGAL = {
   version: '2026-11-02',
   vigenteDesde: '2 de noviembre de 2026',
   titular: {
-    razonSocial: '[COMPLETAR: razón social de la SpA]',
-    rut: '[COMPLETAR: RUT de la SpA]',
-    domicilio: '[COMPLETAR: domicilio]',
-    ciudadTribunales: '[COMPLETAR: ciudad, p. ej. Santiago]',
+    razonSocial: 'LOS CÁCERES SPA',
+    rut: '78255686-K',
+    domicilio: 'ALEMANIA ST 61',
+    ciudadTribunales: 'VALPARAÍSO',
   },
   /** Días que se conservan los datos de una cuenta cancelada o suspendida antes de eliminarlos. [CONFIRMAR] */
   diasConservacionTrasCancelacion: 90,
