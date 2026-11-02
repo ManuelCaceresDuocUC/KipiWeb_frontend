@@ -53,7 +53,7 @@ const SECCIONES: SeccionLegal[] = [
   {
     titulo: 'Cuánto tiempo conservamos los datos',
     parrafos: [
-      `Mientras la cuenta esté vigente. Tras cancelarla o suspenderla, conservamos la información por ${LEGAL.diasConservacionTrasCancelacion} días para permitir su reactivación o descarga y luego la eliminamos, salvo lo que debamos conservar por obligación legal (por ejemplo, respaldo de cobros y de la aceptación de los Términos).`,
+      `Mientras la cuenta esté vigente. Tras cancelarla o suspenderla, conservamos la información por ${LEGAL.diasConservacionTrasCancelacion} días para permitir su reactivación o descarga y luego podremos eliminarla, salvo lo que debamos conservar por obligación legal (por ejemplo, respaldo de cobros y de la aceptación de los Términos).`,
       'Los códigos de verificación y enlaces de recuperación se eliminan automáticamente poco después de vencer.',
     ],
   },
