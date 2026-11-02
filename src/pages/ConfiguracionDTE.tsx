@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { apiFetch, leerError } from '../helpers/apiFetch';
 
 interface ConfiguracionDTEData {
-  proveedor: 'openfactura' | 'libredte' | 'ninguno';
+  proveedor: 'openfactura' | 'libredte' | 'simplefactura' | 'ninguno';
   apiKey: string; // solo lo que el usuario escribe ahora; el servidor nunca devuelve la llave guardada
   apiSecret?: string;
   rutEmisor: string;
@@ -38,9 +38,13 @@ export const ConfiguracionDTE = () => {
     enmascarada: '',
   });
 
+  const [secretGuardado, setSecretGuardado] = useState(false);
+
   const [config, setConfig] = useState<ConfiguracionDTEData>(CONFIG_INICIAL);
 
-  const hayLlave = config.apiKey.trim() !== '' || llaveGuardada.configurada;
+  const usaUsuarioClave = config.proveedor === 'simplefactura'; // SimpleFactura entra con correo + contraseña, no con una API Key
+  const hayLlave = (config.apiKey.trim() !== '' || llaveGuardada.configurada)
+    && (!usaUsuarioClave || (config.apiSecret ?? '') !== '' || secretGuardado);
 
   // Cargar configuración existente (la empresa la determina el token)
   useEffect(() => {
@@ -65,6 +69,7 @@ export const ConfiguracionDTE = () => {
               configurada: Boolean(data.apiKeyConfigurada),
               enmascarada: data.apiKeyEnmascarada ?? '',
             });
+            setSecretGuardado(Boolean(data.apiSecretConfigurada));
           }
         } else if (res.status === 403) {
           setMensaje({ tipo: 'error', texto: 'Solo un administrador puede ver o cambiar la facturación electrónica.' });
@@ -121,6 +126,7 @@ export const ConfiguracionDTE = () => {
           setLlaveGuardada({ configurada: true, enmascarada: '••••••••' + config.apiKey.trim().slice(-4) });
           setConfig((c) => ({ ...c, apiKey: '', apiSecret: '' }));
         }
+        if ((config.apiSecret ?? '') !== '') setSecretGuardado(true);
       } else if (res.status === 403) {
         setMensaje({ tipo: 'error', texto: 'Solo un administrador puede cambiar esta configuración.' });
       } else {
@@ -175,7 +181,8 @@ export const ConfiguracionDTE = () => {
                   className="w-full p-2.5 rounded border border-slate-300 bg-white focus:outline-none focus:border-slate-500 text-sm"
                 >
                   <option value="openfactura">OpenFactura (Haulmer)</option>
-                  <option value="libredte">LibreDTE (beta, sin probar con cuenta real)</option>
+                  <option value="simplefactura">SimpleFactura (beta, sin probar con cuenta real)</option>
+                  <option value="libredte">LibreDTE (beta, requiere plan de pago con API)</option>
                   <option value="ninguno">Deshabilitado (Solo boleta informativa)</option>
                 </select>
               </div>
@@ -214,12 +221,14 @@ export const ConfiguracionDTE = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">API Key / Token Privado</label>
+                <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">
+                  {usaUsuarioClave ? 'Correo de tu usuario SimpleFactura' : 'API Key / Token Privado'}
+                </label>
                 <input
-                  type="password"
+                  type={usaUsuarioClave ? 'text' : 'password'}
                   placeholder={llaveGuardada.configurada
                     ? `Guardada (${llaveGuardada.enmascarada}). Escribe una nueva solo para reemplazarla`
-                    : 'Pega aquí tu API Key del proveedor...'}
+                    : usaUsuarioClave ? 'tucorreo@empresa.cl' : 'Pega aquí tu API Key del proveedor...'}
                   value={config.apiKey}
                   onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
                   autoComplete="new-password"
@@ -230,6 +239,24 @@ export const ConfiguracionDTE = () => {
                   <p className="text-xs text-emerald-700 mt-1">✓ Ya hay una API Key guardada de forma segura.</p>
                 )}
               </div>
+
+              {usaUsuarioClave && (
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Contraseña de SimpleFactura</label>
+                  <input
+                    type="password"
+                    placeholder={secretGuardado ? 'Guardada. Escribe una nueva solo para reemplazarla' : 'Contraseña de tu cuenta SimpleFactura'}
+                    value={config.apiSecret ?? ''}
+                    onChange={(e) => setConfig({ ...config, apiSecret: e.target.value })}
+                    autoComplete="new-password"
+                    className="w-full p-2.5 rounded border border-slate-300 bg-white focus:outline-none focus:border-slate-500 text-sm font-mono"
+                    required={!secretGuardado}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Se guarda cifrada. SimpleFactura usa también los datos de tu empresa (razón social, giro, dirección y comuna) del registro.
+                  </p>
+                </div>
+              )}
 
               {config.proveedor === 'libredte' && (
                 <p className="text-xs text-slate-500">
