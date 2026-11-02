@@ -9,6 +9,7 @@ interface ConfiguracionDTEData {
   apiKey: string; // solo lo que el usuario escribe ahora; el servidor nunca devuelve la llave guardada
   apiSecret?: string;
   rutEmisor: string;
+  acteco?: string; // códigos de actividad económica del SII (6 dígitos, hasta 4 separados por coma)
   ambiente: 'produccion' | 'sandbox';
   emitirBoletaEfectivo: boolean;
   emitirBoletaTarjeta: boolean; // Control para evitar doble IVA con vouchers
@@ -20,6 +21,7 @@ const CONFIG_INICIAL: ConfiguracionDTEData = {
   apiKey: '',
   apiSecret: '',
   rutEmisor: '',
+  acteco: '',
   ambiente: 'produccion',
   emitirBoletaEfectivo: true,
   emitirBoletaTarjeta: false, // Por defecto en false para resguardar voucher de Transbank/Getnet
@@ -58,6 +60,7 @@ export const ConfiguracionDTE = () => {
               ...CONFIG_INICIAL,
               proveedor: data.proveedor ?? CONFIG_INICIAL.proveedor,
               rutEmisor: data.rutEmisor ?? '',
+              acteco: data.acteco ?? '',
               ambiente: data.ambiente ?? CONFIG_INICIAL.ambiente,
               emitirBoletaEfectivo: data.emitirBoletaEfectivo ?? true,
               emitirBoletaTarjeta: data.emitirBoletaTarjeta ?? false,
@@ -218,6 +221,21 @@ export const ConfiguracionDTE = () => {
                   className="w-full p-2.5 rounded border border-slate-300 bg-white focus:outline-none focus:border-slate-500 text-sm font-mono"
                   required={config.proveedor !== 'ninguno'}
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Actividad económica (Acteco)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="ej: 471910 (hasta 4, separados por coma)"
+                  value={config.acteco ?? ''}
+                  onChange={(e) => setConfig({ ...config, acteco: e.target.value })}
+                  className="w-full p-2.5 rounded border border-slate-300 bg-white focus:outline-none focus:border-slate-500 text-sm font-mono"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Código de 6 dígitos de tu giro en el SII (Mi SII → Actividades económicas). Lo exigen las notas de crédito al anular una venta.
+                </p>
               </div>
 
               <div>
