@@ -18,7 +18,9 @@ const SECCIONES: SeccionLegal[] = [
       'Datos de la empresa: RUT, razón social, giro, sucursales y direcciones.',
       'Datos de usuarios: nombre de usuario, correo electrónico, rol, sucursal asignada y contraseña (almacenada solo como hash irreversible).',
       'Datos operativos que la empresa carga: productos, inventario, ventas, turnos de caja, documentos tributarios y, si los usa, datos de sus clientes (nombre, RUT, teléfono, correo, deuda/crédito).',
+      'Credenciales de facturación electrónica: la API Key o, según el proveedor, el correo y la contraseña de la cuenta que la empresa tiene en su proveedor de documentos tributarios, junto con el RUT emisor y los códigos de actividad económica. Se guardan cifradas.',
       'Datos técnicos y de seguridad: dirección IP, fecha y versión de los Términos aceptados, intentos de acceso y registros de errores.',
+      'Registro de actividad: para seguridad y trazabilidad, anotamos las acciones sensibles realizadas en la cuenta (por ejemplo, anulación de ventas, cambios de usuarios y de la configuración de facturación, restablecimiento de contraseñas y cierre de sesiones), con el usuario, la fecha y la dirección IP. El administrador de la empresa puede consultarlo.',
       'Datos de pago: la tarjeta se inscribe directamente en Flow; KIPI no ve ni almacena el número de la tarjeta. Recibimos de Flow el estado de la suscripción y sus identificadores.',
       'Contenido que nos envías por el formulario de contacto o por correo.',
     ],
@@ -37,14 +39,14 @@ const SECCIONES: SeccionLegal[] = [
     titulo: 'Con quién los compartimos',
     parrafos: [
       'Para operar KIPI usamos proveedores que tratan datos en nuestro nombre: Flow (pagos y suscripciones), Render y Railway (servidores y base de datos), Vercel (sitio web), Amazon Web Services S3 (almacenamiento de comprobantes), Google (envío de correos) y Cloudflare (protección anti-robots). Cada uno trata solo los datos necesarios para su función.',
-      'Si la empresa conecta un proveedor de facturación electrónica, KIPI le envía los datos necesarios para emitir cada documento tributario, bajo las condiciones de ese proveedor.',
+      'Si la empresa conecta un proveedor de facturación electrónica (por ejemplo, Haulmer/OpenFactura, LibreDTE o SimpleFactura), KIPI le envía los datos necesarios para emitir cada documento tributario (datos del emisor, detalle de la venta y, si corresponde, del receptor) y las credenciales que la empresa registró, bajo las condiciones y la política de privacidad de ese proveedor, con el cual la empresa mantiene su propio contrato.',
       'Algunos de estos proveedores pueden almacenar o procesar datos fuera de Chile. Exigimos medidas de seguridad adecuadas y solo los usamos para los fines indicados.',
     ],
   },
   {
     titulo: 'Seguridad',
     parrafos: [
-      'Aplicamos medidas técnicas y organizativas razonables: comunicaciones cifradas (HTTPS), contraseñas almacenadas con hash, API Keys de facturación cifradas, control de acceso por roles y por empresa, límites a intentos de acceso y solicitudes, y verificación de correo en el registro.',
+      'Aplicamos medidas técnicas y organizativas razonables: comunicaciones cifradas (HTTPS), contraseñas almacenadas con hash, credenciales de facturación cifradas, control de acceso por roles y por empresa, posibilidad de cerrar las sesiones activas de un usuario, registro de actividad, límites a intentos de acceso y solicitudes, y verificación de correo en el registro.',
       'Ningún sistema es completamente infalible. Si ocurre una vulneración que afecte datos personales, la informaremos a los afectados y a la autoridad conforme a la ley.',
     ],
   },
