@@ -17,6 +17,9 @@ import { ModalConsultaCliente } from '../components/Ventas/Modales/ModalConsulta
 import { ModalNuevoCliente } from '../components/Ventas/Modales/ModalNuevoCliente';
 import { ModalCierre } from '../components/Ventas/Modales/ModalCierre';
 import { ModalResumen } from '../components/Ventas/Modales/ModalResumen';
+import { ModalFiadoManual } from '../components/Ventas/Modales/ModalFiadoManual';
+import { imprimirValesManuales } from '../helpers/valeManual';
+import { useEstadoConexion } from '../hooks/useEstadoConexion';
 
 // UI de Ventas
 import { BuscadorVentas } from '../components/Ventas/UI/BuscadorVentas';
@@ -36,6 +39,9 @@ export const Ventas = () => {
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [mostrarCamara, setMostrarCamara] = useState(false);
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [showModalFiadoManual, setShowModalFiadoManual] = useState(false);
+  // Sin conexión no se puede dar fiado: se anota en un vale de papel y se registra después
+  const sinRed = useEstadoConexion() === 'sin-conexion';
 
   // 1. Hooks de Negocio
   const { productos, cargarProductos, catalogoGuardadoEn, descontarLocal } = useInventario({ copiaSinConexion: true }); 
@@ -192,6 +198,18 @@ const clientesContext = useClientesPos(setClienteId);
               <button onClick={() => { setShowModalConsultaCliente(true); setMenuAbierto(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">🔍 Consultar / Abonar Cliente</button>
               <button onClick={() => { setTipoMovimiento('ingreso'); setShowModalMovimiento(true); setMenuAbierto(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">Registrar Ingreso</button>
               <button onClick={() => { setTipoMovimiento('retiro'); setShowModalMovimiento(true); setMenuAbierto(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">Registrar Retiro</button>
+              <button onClick={() => { setMenuAbierto(false); void (async () => {
+                const r = await Swal.fire({
+                  title: 'Vales de fiado en papel',
+                  html: 'Para dar fiado cuando no hay conexión. Cada hoja trae un vale numerado con copia para el local y copia para el cliente.<br><br>¿Cuántas hojas imprimir?',
+                  input: 'number', inputValue: 5, inputAttributes: { min: '1', max: '20' },
+                  showCancelButton: true, confirmButtonText: 'Imprimir', cancelButtonText: 'Cancelar',
+                });
+                if (!r.isConfirmed) return;
+                const numeros = await imprimirValesManuales(Number(r.value));
+                void Swal.fire('Vales listos', `Numeración impresa: ${numeros[0]} a ${numeros[numeros.length - 1]}. Guárdalos para cuando no haya conexión.`, 'success');
+              })(); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">🧾 Imprimir vales de fiado (papel)</button>
+              <button onClick={() => { setShowModalFiadoManual(true); setMenuAbierto(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">✍️ Registrar fiado desde vale</button>
               <label className="flex items-center justify-between gap-3 w-full px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100 cursor-pointer">
                 <span>🖨️ Imprimir ticket al vender</span>
                 <input
@@ -206,6 +224,12 @@ const clientesContext = useClientesPos(setClienteId);
           )}
         </div>
       </div>
+
+      {sinRed && (
+        <div role="note" className="w-full max-w-6xl mb-4 rounded-xl border border-slate-300 bg-white p-3 text-sm text-slate-700">
+          <b>Fiado sin conexión:</b> no está disponible en pantalla. Anótalo en un vale de papel (se imprimen desde <i>Opciones Operativas</i>) con el cliente firmando, y regístralo después con <i>Registrar fiado desde vale</i>.
+        </div>
+      )}
 
       {catalogoGuardadoEn && (
         <div role="status" className="w-full max-w-6xl mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
@@ -260,13 +284,20 @@ const clientesContext = useClientesPos(setClienteId);
         totalBruto={totalBruto} 
         pagos={pagos}
         setPagos={setPagos}
-        permiteFiado={permiteFiado}
+        permiteFiado={permiteFiado && !sinRed}
         clienteId={clienteId} 
         setClienteId={setClienteId} 
         pagaCon={pagaCon} 
         setPagaCon={setPagaCon}
         onAbrirNuevoCliente={() => setShowModalNuevoCliente(true)} 
         confirmarVentaFinal={confirmarVentaFinal}
+      />
+
+      <ModalFiadoManual
+        show={showModalFiadoManual}
+        onClose={() => setShowModalFiadoManual(false)}
+        productos={productos}
+        onRegistrado={() => { void cargarProductos(); }}
       />
 
       <ModalConsultaCliente 

@@ -292,9 +292,9 @@ export const useVentas = (
       } else {
         void Swal.fire({
           title: duplicada ? 'Venta ya registrada' : (hayCredito ? '¡Venta a Crédito Registrada!' : '¡Venta Completada!'),
-          text: duplicada ? respuestaBackend.message : '',
+          text: duplicada ? respuestaBackend.message : (hayCredito && respuestaBackend?.correoFiadoEnviado ? 'Se envió el comprobante al correo del cliente.' : ''),
           icon: duplicada ? 'info' : 'success',
-          timer: duplicada ? undefined : 2500
+          timer: duplicada ? undefined : (hayCredito ? 4000 : 2500)
         });
       }
 
