@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
-import { apiFetch, leerError } from "../helpers/apiFetch";
+import { apiFetch, esErrorDeConexion, leerError } from "../helpers/apiFetch";
 import type { LineaPago } from "../types/ventas.types";
 import { imprimirDocumentos } from "../helpers/impresion";
 import { adjuntarComprobante } from "../helpers/documentosVenta";
@@ -24,6 +24,9 @@ const nuevaClave = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
+/** Espera máxima de la venta: incluye la emisión de la boleta con el proveedor, por eso es generosa. */
+const TIEMPO_MAX_VENTA_MS = 40_000;
+
 export const useVentas = (onVentaExitosa?: () => void) => {
   const [pagos, setPagos] = useState<LineaPago[]>([]);
   const [clienteId, setClienteId] = useState<number | null>(null);
@@ -36,6 +39,10 @@ export const useVentas = (onVentaExitosa?: () => void) => {
   // devuelve la venta ya registrada en vez de cobrarla dos veces. Cambia si cambia el carrito.
   const claveRef = useRef<string | null>(null);
   useEffect(() => { claveRef.current = null; }, [carrito]);
+
+  // Cobro con tarjeta ya aprobado en la máquina para este intento (clave + terminal + monto): si hay que reintentar
+  // por un corte de conexión, NO se vuelve a pedir pasar la tarjeta.
+  const tarjetaAprobadaRef = useRef<string | null>(null);
 
   useEffect(() => {
     const cargarConfig = async () => {
@@ -130,8 +137,10 @@ export const useVentas = (onVentaExitosa?: () => void) => {
       })),
     };
 
+    const marcaTarjeta = tarjeta ? `${claveRef.current}|${tarjeta.proveedorTarjeta}|${tarjeta.monto}` : null;
+
     try {
-      if (tarjeta) {
+      if (tarjeta && tarjetaAprobadaRef.current !== marcaTarjeta) {
         // Espera de confirmación manual del cobro en la máquina física
         const confirmacionPOS = await Swal.fire({
           title: `Cobro en Máquina (${tarjeta.proveedorTarjeta})`,
@@ -155,6 +164,7 @@ export const useVentas = (onVentaExitosa?: () => void) => {
           Swal.fire('Venta no registrada', 'El cobro no fue confirmado.', 'info');
           return;
         }
+        tarjetaAprobadaRef.current = marcaTarjeta;
       }
 
       Swal.fire({
@@ -166,7 +176,8 @@ export const useVentas = (onVentaExitosa?: () => void) => {
 
       const res = await apiFetch(`${import.meta.env.VITE_API_URL}/pagos/venta`, {
         method: 'POST',
-        body: JSON.stringify(datosVenta)
+        body: JSON.stringify(datosVenta),
+        timeoutMs: TIEMPO_MAX_VENTA_MS
       });
       if (!res.ok) throw new Error(await leerError(res, "Error al procesar el pago"));
       const respuestaBackend = await res.json();
@@ -216,6 +227,25 @@ export const useVentas = (onVentaExitosa?: () => void) => {
 
     } catch (err: unknown) {
       // La clave se conserva a propósito: si la venta sí se guardó y solo se perdió la respuesta, el reintento no cobra doble
+      if (esErrorDeConexion(err)) {
+        const decision = await Swal.fire({
+          icon: 'warning',
+          title: 'No pudimos confirmar la venta',
+          html: `<div style="text-align:left;font-size:14px;line-height:1.5">
+            <p>${err.porTiempo ? 'El servidor tardó demasiado en responder.' : 'Se cortó la conexión con el servidor.'}
+            Es posible que la venta <b>sí</b> haya quedado registrada.</p>
+            <p style="margin-top:8px">Pulsa <b>Reintentar</b>: el sistema reconoce la misma venta y <b>no la cobra dos veces</b>.
+            ${tarjeta ? 'El cobro en la máquina ya está aprobado: <b>no lo repitas</b>.' : ''}</p>
+            <p style="margin-top:8px;color:#64748b">Si no quieres esperar, pulsa Esperar y revisa Movimientos cuando vuelva la conexión, antes de cobrar de nuevo.</p></div>`,
+          showCancelButton: true,
+          confirmButtonText: 'Reintentar',
+          cancelButtonText: 'Esperar',
+          confirmButtonColor: '#0F172A',
+          allowOutsideClick: false,
+        });
+        if (decision.isConfirmed) await confirmarVentaFinal();
+        return;
+      }
       const msg = err instanceof Error ? err.message : "Error inesperado";
       Swal.fire('Error en la venta', msg, 'error');
     }

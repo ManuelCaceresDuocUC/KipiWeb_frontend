@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { esAdmin, getSesion, limpiarSesion } from '../helpers/session';
+import { AvisoConexion } from './AvisoConexion';
 import { BannerSuscripcion } from './BannerSuscripcion';
 
 export const DashboardLayout = () => {
@@ -120,6 +121,7 @@ export const DashboardLayout = () => {
 
       {/* 🖥️ ÁREA DE CONTENIDO PRINCIPAL */}
       <main id="contenido" className="flex-1 overflow-y-auto relative p-4 sm:p-6 lg:p-8 bg-slate-50">
+        <AvisoConexion />
         <BannerSuscripcion />
         <Outlet />
       </main>
