@@ -103,6 +103,21 @@ export const useInventario = (opciones: OpcionesInventario = {}) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sucursalId]);
 
+    /** Tras una venta guardada sin conexión: baja el stock mostrado (y la copia del dispositivo) para no vender de más. */
+    const descontarLocal = (items: { id: number; cantidad: number }[]) => {
+        setProductos((prev) => {
+            const siguiente = prev.map((p) => {
+                const vendido = items.find((i) => i.id === p.id);
+                return vendido ? { ...p, stock: Math.max(0, p.stock - vendido.cantidad) } : p;
+            });
+            if (copiaSinConexion && !sucursalId) {
+                const previoGuardado = catalogoGuardadoEn ?? Date.now();
+                void kvGuardar(claveCatalogo(), { guardadoEn: previoGuardado, productos: siguiente } satisfies CatalogoGuardado);
+            }
+            return siguiente;
+        });
+    };
+
     const eliminarProducto = async (id: number) => {
         const result = await Swal.fire({
             title: '¿Estás seguro?',
@@ -206,6 +221,7 @@ export const useInventario = (opciones: OpcionesInventario = {}) => {
         loading, 
         error,
         cargarProductos,   
+        descontarLocal,
         eliminarProducto,
         agregarProducto,
         editarProducto,

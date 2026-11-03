@@ -107,3 +107,89 @@ export const imprimirDocumentos = async (documentos: Array<string | null | undef
     if (i < validos.length - 1) await new Promise((r) => setTimeout(r, 1500));
   }
 };
+
+export interface TicketLocal {
+  numeroLocal: number;
+  fecha: Date;
+  empresa: string;
+  items: { descripcion: string; cantidad: number; precio: number }[];
+  total: number;
+  metodos: string[];
+}
+
+const escaparHtml = (t: string) =>
+  t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+const clp = (n: number) => '$' + Math.round(n).toLocaleString('es-CL');
+
+const ETIQUETA_METODO: Record<string, string> = {
+  EFECTIVO: 'Efectivo',
+  TARJETA: 'Tarjeta',
+  TRANSFERENCIA: 'Transferencia',
+};
+
+/**
+ * Comprobante interno de una venta hecha sin conexión (80 mm). NO es boleta: la boleta electrónica se emite
+ * cuando la venta llega al servidor. Se arma en el propio equipo, sin necesitar internet.
+ */
+export const imprimirTicketLocal = (t: TicketLocal): Promise<boolean> =>
+  new Promise((resolve) => {
+    if (!impresionAutomaticaActiva()) {
+      resolve(false);
+      return;
+    }
+    const filas = t.items
+      .map(
+        (i) =>
+          `<tr><td colspan="2">${escaparHtml(i.descripcion)}</td></tr>` +
+          `<tr><td>${i.cantidad} x ${clp(i.precio)}</td><td class="d">${clp(i.cantidad * i.precio)}</td></tr>`,
+      )
+      .join('');
+    const medios = t.metodos.map((m) => ETIQUETA_METODO[m] ?? m).join(' + ');
+    const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+      @page{size:80mm auto;margin:3mm}
+      body{font-family:monospace;font-size:12px;width:72mm;margin:0;color:#000}
+      h1{font-size:14px;text-align:center;margin:0 0 2px}
+      p{margin:2px 0}.c{text-align:center}.d{text-align:right}
+      table{width:100%;border-collapse:collapse;margin:6px 0}
+      hr{border:0;border-top:1px dashed #000;margin:6px 0}
+      .t{font-size:15px;font-weight:bold}
+    </style></head><body>
+      <h1>${escaparHtml(t.empresa)}</h1>
+      <p class="c"><b>COMPROBANTE INTERNO</b></p>
+      <p class="c">Sin valor tributario. La boleta electrónica se emitirá al restablecerse la conexión.</p>
+      <hr>
+      <p>N° local: ${t.numeroLocal}</p>
+      <p>${t.fecha.toLocaleString('es-CL')}</p>
+      <hr>
+      <table>${filas}</table>
+      <hr>
+      <table><tr class="t"><td>TOTAL</td><td class="d">${clp(t.total)}</td></tr></table>
+      <p>Pago: ${escaparHtml(medios)}</p>
+    </body></html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none;';
+    let resuelto = false;
+    const terminar = (ok: boolean) => {
+      if (resuelto) return;
+      resuelto = true;
+      resolve(ok);
+    };
+    iframe.onload = () => {
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          terminar(true);
+        } catch {
+          terminar(false);
+        }
+        setTimeout(() => iframe.remove(), 120000);
+      }, 200);
+    };
+    iframe.srcdoc = html;
+    document.body.appendChild(iframe);
+    setTimeout(() => terminar(false), 8000);
+  });

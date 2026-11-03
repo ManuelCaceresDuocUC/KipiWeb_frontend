@@ -24,7 +24,7 @@ import { DetalleCarrito } from '../components/Ventas/UI/DetalleCarrito';
 import { DesglosePago } from '../components/Ventas/UI/DesglosePago';
 
 import { getSesion } from '../helpers/session';
-import { EVENTO_CONEXION_RESTABLECIDA } from '../helpers/conexion';
+import { EVENTO_CONEXION_RESTABLECIDA, EVENTO_VENTAS_SINCRONIZADAS } from '../helpers/conexion';
 export const Ventas = () => {
   // Para la UI solamente: el servidor identifica empresa y usuario por el token
   const empresaId = getSesion()?.empresa.id ?? 0;
@@ -38,9 +38,9 @@ export const Ventas = () => {
   const [menuAbierto, setMenuAbierto] = useState(false);
 
   // 1. Hooks de Negocio
-  const { productos, cargarProductos, catalogoGuardadoEn } = useInventario({ copiaSinConexion: true }); 
+  const { productos, cargarProductos, catalogoGuardadoEn, descontarLocal } = useInventario({ copiaSinConexion: true }); 
   
-  const ventasContext = useVentas(cargarProductos); 
+  const ventasContext = useVentas(cargarProductos, descontarLocal); 
   const { 
     carrito, agregarAlCarrito, actualizarCantidad, totalVenta, 
     eliminarDelCarrito, confirmarVentaFinal, showModalPago, 
@@ -82,7 +82,11 @@ const clientesContext = useClientesPos(setClienteId);
   useEffect(() => {
     const alVolver = () => { void cargarProductos(); };
     window.addEventListener(EVENTO_CONEXION_RESTABLECIDA, alVolver);
-    return () => window.removeEventListener(EVENTO_CONEXION_RESTABLECIDA, alVolver);
+    window.addEventListener(EVENTO_VENTAS_SINCRONIZADAS, alVolver);
+    return () => {
+      window.removeEventListener(EVENTO_CONEXION_RESTABLECIDA, alVolver);
+      window.removeEventListener(EVENTO_VENTAS_SINCRONIZADAS, alVolver);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

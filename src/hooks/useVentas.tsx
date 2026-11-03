@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
-import { apiFetch, esErrorDeConexion, leerError } from "../helpers/apiFetch";
+import { apiFetch, ErrorConexion, esErrorDeConexion, leerError } from "../helpers/apiFetch";
 import type { LineaPago } from "../types/ventas.types";
-import { imprimirDocumentos } from "../helpers/impresion";
+import { imprimirDocumentos, imprimirTicketLocal } from "../helpers/impresion";
+import { agregarVentaPendiente, siguienteNumeroLocal, type VentaPendiente } from "../helpers/colaVentas";
+import { sinConexionSegura } from "../helpers/conexion";
+import { getSesion } from "../helpers/session";
 import { adjuntarComprobante } from "../helpers/documentosVenta";
 
 export interface Producto {
@@ -27,7 +30,11 @@ const nuevaClave = () =>
 /** Espera máxima de la venta: incluye la emisión de la boleta con el proveedor, por eso es generosa. */
 const TIEMPO_MAX_VENTA_MS = 40_000;
 
-export const useVentas = (onVentaExitosa?: () => void) => {
+export const useVentas = (
+  onVentaExitosa?: () => void,
+  /** Se llama cuando una venta queda guardada en el equipo (sin conexión), para bajar el stock mostrado. */
+  onVentaEnCola?: (items: { id: number; cantidad: number }[]) => void,
+) => {
   const [pagos, setPagos] = useState<LineaPago[]>([]);
   const [clienteId, setClienteId] = useState<number | null>(null);
   const [showModalPago, setShowModalPago] = useState(false);
@@ -92,6 +99,78 @@ export const useVentas = (onVentaExitosa?: () => void) => {
   const totalVenta = carrito.reduce((acc, p) => acc + p.subtotal, 0);
   const vaciarCarrito = () => setCarrito([]);
 
+  const limpiarVenta = () => {
+    claveRef.current = null;
+    tarjetaAprobadaRef.current = null;
+    setCarrito([]);
+    setShowModalPago(false);
+    setPagos([]);
+    setClienteId(null);
+    setBusqueda("");
+  };
+
+  // Guarda la venta en el equipo para enviarla cuando vuelva la conexión (nunca fiado)
+  const guardarParaDespues = async () => {
+    const sesion = getSesion();
+    if (!sesion || !claveRef.current || pagos.some(l => l.metodo === 'CREDITO')) return;
+    const total = Math.round(totalVenta);
+    const ahora = new Date();
+    const venta: VentaPendiente = {
+      clave: claveRef.current,
+      numeroLocal: siguienteNumeroLocal(),
+      creadaEn: ahora.toISOString(),
+      usuarioId: sesion.id,
+      usuarioNombre: sesion.usuario,
+      empresaId: sesion.empresa.id,
+      total,
+      metodos: pagos.map(l => l.metodo),
+      items: carrito.map(p => ({ descripcion: p.descripcion, cantidad: p.cantidad, precio: p.precio })),
+      payload: {
+        monto: total,
+        clienteId: clienteId ? Number(clienteId) : null,
+        idempotencyKey: claveRef.current,
+        diferida: true,
+        ocurrioEn: ahora.toISOString(),
+        // Precio con el que se cobró: el servidor lo respeta en ventas guardadas sin conexión
+        items: carrito.map(p => ({ productoId: p.id, cantidad: p.cantidad, precioUnitario: p.precio })),
+        pagos: pagos.map(l => ({
+          metodo: l.metodo,
+          monto: l.monto,
+          proveedorTarjeta: l.metodo === 'TARJETA' ? l.proveedorTarjeta : null,
+          referencia: l.referencia?.trim() || null,
+          confirmado: l.metodo === 'TRANSFERENCIA' ? true : undefined,
+        })),
+      },
+      estado: 'pendiente',
+      intentos: 0,
+    };
+
+    try {
+      await agregarVentaPendiente(venta);
+    } catch {
+      Swal.fire('No se pudo guardar', 'Este equipo no permitió guardar la venta. Anótala a mano y regístrala cuando vuelva la conexión.', 'error');
+      return;
+    }
+
+    void imprimirTicketLocal({
+      numeroLocal: venta.numeroLocal,
+      fecha: ahora,
+      empresa: sesion.empresa.razonSocial,
+      items: venta.items,
+      total,
+      metodos: venta.metodos,
+    });
+    onVentaEnCola?.(carrito.map(p => ({ id: p.id, cantidad: p.cantidad })));
+    limpiarVenta();
+    void Swal.fire({
+      icon: 'success',
+      title: `Venta guardada (N° local ${venta.numeroLocal})`,
+      text: 'Se enviará sola cuando vuelva la conexión y ahí se emitirá la boleta.',
+      timer: 3500,
+      showConfirmButton: false,
+    });
+  };
+
   // CONFIRMAR VENTA FINAL
   const confirmarVentaFinal = async () => {
     const total = Math.round(totalVenta);
@@ -137,6 +216,7 @@ export const useVentas = (onVentaExitosa?: () => void) => {
       })),
     };
 
+    const conCredito = pagos.some(l => l.metodo === 'CREDITO');
     const marcaTarjeta = tarjeta ? `${claveRef.current}|${tarjeta.proveedorTarjeta}|${tarjeta.monto}` : null;
 
     try {
@@ -166,6 +246,9 @@ export const useVentas = (onVentaExitosa?: () => void) => {
         }
         tarjetaAprobadaRef.current = marcaTarjeta;
       }
+
+      // Si ya se sabe que no hay conexión, no se espera a que el envío falle por tiempo
+      if (sinConexionSegura()) throw new ErrorConexion(false);
 
       Swal.fire({
         title: 'Procesando Venta...',
@@ -215,13 +298,7 @@ export const useVentas = (onVentaExitosa?: () => void) => {
         });
       }
 
-      // Limpieza de estados
-      claveRef.current = null;
-      setCarrito([]);
-      setShowModalPago(false);
-      setPagos([]);
-      setClienteId(null);
-      setBusqueda("");
+      limpiarVenta();
 
       if (onVentaExitosa) onVentaExitosa();
 
@@ -234,16 +311,23 @@ export const useVentas = (onVentaExitosa?: () => void) => {
           html: `<div style="text-align:left;font-size:14px;line-height:1.5">
             <p>${err.porTiempo ? 'El servidor tardó demasiado en responder.' : 'Se cortó la conexión con el servidor.'}
             Es posible que la venta <b>sí</b> haya quedado registrada.</p>
-            <p style="margin-top:8px">Pulsa <b>Reintentar</b>: el sistema reconoce la misma venta y <b>no la cobra dos veces</b>.
+            <p style="margin-top:8px"><b>Reintentar</b>: el sistema reconoce la misma venta y <b>no la cobra dos veces</b>.
             ${tarjeta ? 'El cobro en la máquina ya está aprobado: <b>no lo repitas</b>.' : ''}</p>
-            <p style="margin-top:8px;color:#64748b">Si no quieres esperar, pulsa Esperar y revisa Movimientos cuando vuelva la conexión, antes de cobrar de nuevo.</p></div>`,
+            ${conCredito
+              ? `<p style="margin-top:8px;color:#b45309"><b>Venta a crédito (fiado):</b> no se puede guardar sin conexión. Anota los datos en el vale manual y regístralo cuando vuelva la conexión.</p>`
+              : `<p style="margin-top:8px"><b>Guardar y enviar después</b>: la venta queda en este equipo y se registra sola (con su boleta) al volver la conexión.</p>`}
+            <p style="margin-top:8px;color:#64748b">Con <b>Esperar</b> no se guarda nada: revisa Movimientos antes de cobrar de nuevo.</p></div>`,
           showCancelButton: true,
+          showDenyButton: !conCredito,
           confirmButtonText: 'Reintentar',
+          denyButtonText: 'Guardar y enviar después',
           cancelButtonText: 'Esperar',
           confirmButtonColor: '#0F172A',
+          denyButtonColor: '#16A34A',
           allowOutsideClick: false,
         });
         if (decision.isConfirmed) await confirmarVentaFinal();
+        else if (decision.isDenied) await guardarParaDespues();
         return;
       }
       const msg = err instanceof Error ? err.message : "Error inesperado";

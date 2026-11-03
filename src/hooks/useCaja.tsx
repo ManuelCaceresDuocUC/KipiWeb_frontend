@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { apiFetch, esErrorDeConexion, leerError } from '../helpers/apiFetch';
 import { kvGuardar, kvLeer } from '../helpers/almacenOffline';
 import { claveCaja } from '../helpers/session';
+import { pendientesDeMiSesion } from '../helpers/colaVentas';
 import Swal from 'sweetalert2';
 import type { ResumenCaja } from '../types/ventas.types';
 
@@ -85,6 +86,16 @@ export const useCaja = () => {
   };
 
   const handleCerrarCaja = async () => {
+    // Las ventas guardadas sin conexión deben llegar al servidor ANTES del cierre, o el turno cuadraría mal
+    const sinEnviar = await pendientesDeMiSesion();
+    if (sinEnviar.length > 0) {
+      Swal.fire(
+        'Hay ventas sin enviar',
+        `Tienes ${sinEnviar.length} venta(s) guardadas sin conexión que aún no llegan a KIPI. Espera a que se envíen (botón "Enviar ahora" en la barra superior) y luego cierra el turno.`,
+        'warning',
+      );
+      return;
+    }
     setCargandoCierre(true);
     try {
       const response = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/resumen`);

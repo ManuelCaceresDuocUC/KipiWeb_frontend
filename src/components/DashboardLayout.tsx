@@ -1,15 +1,31 @@
 import { useState } from 'react';
+import Swal from 'sweetalert2';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { esAdmin, getSesion, limpiarSesion } from '../helpers/session';
 import { AvisoConexion } from './AvisoConexion';
 import { BannerSuscripcion } from './BannerSuscripcion';
+import { ColaVentas } from './ColaVentas';
+import { listarVentasPendientes } from '../helpers/colaVentas';
 
 export const DashboardLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Estado para controlar el menú en móvil
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Ventas cobradas sin conexión que aún no llegan al servidor: no se pierden, pero hay que avisar
+    const pendientes = await listarVentasPendientes();
+    if (pendientes.length > 0) {
+      const r = await Swal.fire({
+        icon: 'warning',
+        title: 'Hay ventas sin enviar',
+        html: `Hay <b>${pendientes.length}</b> venta(s) guardadas en este equipo que aún no llegan a KIPI. Seguirán guardadas, pero solo se enviarán cuando <b>${[...new Set(pendientes.map((v) => v.usuarioNombre))].join(', ')}</b> inicie sesión de nuevo con conexión.`,
+        showCancelButton: true,
+        confirmButtonText: 'Cerrar sesión igual',
+        cancelButtonText: 'Quedarme',
+      });
+      if (!r.isConfirmed) return;
+    }
     // Solo se borra la sesión (no 'cierrePendiente', que protege un cierre de caja sin enviar)
     limpiarSesion();
     navigate('/login', { replace: true });
@@ -122,6 +138,7 @@ export const DashboardLayout = () => {
       {/* 🖥️ ÁREA DE CONTENIDO PRINCIPAL */}
       <main id="contenido" className="flex-1 overflow-y-auto relative p-4 sm:p-6 lg:p-8 bg-slate-50">
         <AvisoConexion />
+        <ColaVentas />
         <BannerSuscripcion />
         <Outlet />
       </main>

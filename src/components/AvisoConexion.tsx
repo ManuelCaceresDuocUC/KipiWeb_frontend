@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { EVENTO_CONEXION_RESTABLECIDA } from '../helpers/conexion';
+import { EVENTO_CONEXION_RESTABLECIDA, setEstadoConexion } from '../helpers/conexion';
 
 type Estado = 'ok' | 'lenta' | 'sin-conexion';
 
@@ -51,6 +51,7 @@ export const AvisoConexion = () => {
         setRecuperada(false);
       }
       previo.current = nuevo;
+      setEstadoConexion(nuevo);
       setEstado(nuevo);
     };
 
@@ -96,7 +97,7 @@ export const AvisoConexion = () => {
           ]
         : [
             'bg-red-50 border-red-300 text-red-800',
-            'Sin conexión con KIPI. Las ventas NO se están guardando: anótalas y regístralas cuando vuelva la conexión. No des por registrada una venta que no mostró confirmación.',
+            'Sin conexión con KIPI. Puedes seguir vendiendo en efectivo, tarjeta o transferencia: las ventas quedan guardadas en este equipo y se envían solas al volver la conexión. El fiado no está disponible sin conexión.',
           ];
 
   return (
