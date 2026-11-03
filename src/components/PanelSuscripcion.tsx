@@ -55,7 +55,7 @@ const describir = (e: EstadoSuscripcion): { titulo: string; detalle: string; cla
 export const PanelSuscripcion = () => {
   const [estado, setEstado] = useState<EstadoSuscripcion | null>(null);
   const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
+  const [aviso, setAviso] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [bajaAbierta, setBajaAbierta] = useState(false);
   const [rut, setRut] = useState('');
@@ -91,7 +91,7 @@ export const PanelSuscripcion = () => {
   const revisarActivacion = async () => {
     setOcupado(true);
     setError('');
-    setInfo('');
+    setAviso('');
     try {
       const r = await apiFetch(`${API}/empresa/suscripcion/sincronizar`, { method: 'POST' });
       if (!r.ok) {
@@ -101,9 +101,9 @@ export const PanelSuscripcion = () => {
       const nuevo = (await r.json()) as EstadoSuscripcion;
       setEstado(nuevo);
       if (nuevo.puedeActivar) {
-        setInfo('Todavía no vemos tu tarjeta inscrita. Si ya la inscribiste, espera un minuto e inténtalo de nuevo.');
+        setAviso('Todavía no vemos tu tarjeta inscrita. Si ya la inscribiste, espera un minuto e inténtalo de nuevo.');
       } else {
-        setInfo('¡Listo! Tu suscripción quedó activa.');
+        setAviso('¡Listo! Tu suscripción quedó activa.');
         window.dispatchEvent(new Event(EVENTO_SUSCRIPCION)); // refresca también el aviso superior
       }
     } catch {
@@ -196,7 +196,7 @@ export const PanelSuscripcion = () => {
         </button>
       )}
 
-      {info && <p role="status" className="mt-3 text-sm font-semibold text-emerald-700">{info}</p>}
+      {aviso && <p role="status" className="mt-3 text-sm font-semibold text-emerald-700">{aviso}</p>}
       {error && <p role="alert" className="mt-3 text-sm font-semibold text-red-700">{error}</p>}
 
       {!estado.puedeActivar && (
