@@ -236,6 +236,12 @@ export const ConfiguracionDTE = () => {
                 <p className="text-xs text-slate-500 mt-1">
                   Código de 6 dígitos de tu giro en el SII (Mi SII → Actividades económicas). Lo exigen las notas de crédito al anular una venta.
                 </p>
+                {config.proveedor !== 'ninguno' && !(config.acteco ?? '').trim() && (
+                  <div role="alert" className="mt-2 rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                    <strong>Falta tu Acteco.</strong> Podrás emitir boletas, pero al anular una venta la nota de crédito será rechazada
+                    por el proveedor y tendrás que regularizarla a mano. Complétalo ahora para evitarlo.
+                  </div>
+                )}
               </div>
 
               <div>
