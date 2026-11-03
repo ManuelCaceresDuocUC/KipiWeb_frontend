@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch, EVENTO_SUSCRIPCION, leerError } from '../helpers/apiFetch';
+import { activarSuscripcion } from '../helpers/suscripcion';
+import { esAdmin } from '../helpers/session';
 
 interface EstadoSuscripcion {
   estado: string;
@@ -8,6 +10,8 @@ interface EstadoSuscripcion {
   cancelada: boolean;
   moraDesde: string | null;
   enlacePago: string | null;
+  diasPrueba: number | null;
+  puedeActivar: boolean;
 }
 
 const API = import.meta.env.VITE_API_URL as string;
@@ -18,6 +22,7 @@ export const BannerSuscripcion = () => {
   const [estado, setEstado] = useState<EstadoSuscripcion | null>(null);
   const [revisando, setRevisando] = useState(false);
   const [aviso, setAviso] = useState('');
+  const [activando, setActivando] = useState(false);
 
   const cargar = useCallback(async () => {
     try {
@@ -58,12 +63,25 @@ export const BannerSuscripcion = () => {
     }
   };
 
+  const activar = async () => {
+    setActivando(true);
+    setAviso('');
+    try {
+      await activarSuscripcion(estado?.diasPrueba ?? null);
+    } catch (e) {
+      setAviso(e instanceof Error ? e.message : 'No pudimos iniciar la activación.');
+    } finally {
+      setActivando(false);
+    }
+  };
+
   if (!estado || !estado.mensaje) {
     return aviso ? <p className="mb-4 text-sm text-emerald-700 font-semibold">{aviso}</p> : null;
   }
 
   const soloLectura = estado.modo !== 'PLENO';
   const enMora = !soloLectura && !!estado.moraDesde;
+  const enPrueba = estado.puedeActivar;
   const estilo = soloLectura
     ? 'bg-red-50 border-red-300 text-red-800'
     : enMora
@@ -73,7 +91,20 @@ export const BannerSuscripcion = () => {
   return (
     <div role="alert" className={`mb-4 rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${estilo}`}>
       <p className="flex-1 text-sm font-semibold">{estado.mensaje}</p>
-      {(soloLectura || enMora) && (
+      {enPrueba && (
+        esAdmin() ? (
+          <button
+            onClick={activar}
+            disabled={activando}
+            className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-bold hover:bg-slate-700 disabled:opacity-50 transition-colors"
+          >
+            {activando ? 'Conectando…' : 'Activar suscripción'}
+          </button>
+        ) : (
+          <p className="text-xs font-semibold">Pídele a tu administrador que active la suscripción.</p>
+        )
+      )}
+      {!enPrueba && (soloLectura || enMora) && (
         <div className="flex flex-wrap gap-2">
           {estado.enlacePago && (
             <a

@@ -21,7 +21,7 @@ const SECCIONES: SeccionLegal[] = [
       'Credenciales de facturación electrónica: la API Key o, según el proveedor, el correo y la contraseña de la cuenta que la empresa tiene en su proveedor de documentos tributarios, junto con el RUT emisor y los códigos de actividad económica. Se guardan cifradas.',
       'Datos técnicos y de seguridad: dirección IP, fecha y versión de los Términos aceptados, intentos de acceso y registros de errores.',
       'Registro de actividad: para seguridad y trazabilidad, anotamos las acciones sensibles realizadas en la cuenta (por ejemplo, anulación de ventas, cambios de usuarios y de la configuración de facturación, restablecimiento de contraseñas y cierre de sesiones), con el usuario, la fecha y la dirección IP. El administrador de la empresa puede consultarlo.',
-      'Datos de pago: la tarjeta se inscribe directamente en Flow; KIPI no ve ni almacena el número de la tarjeta. Recibimos de Flow el estado de la suscripción y sus identificadores.',
+      'Datos de pago: durante la prueba gratuita no solicitamos datos de pago. Cuando el cliente activa su suscripción, creamos su cliente en Flow con la razón social, el RUT y el correo del administrador, y la tarjeta se inscribe directamente en Flow; KIPI no ve ni almacena el número de la tarjeta. Recibimos de Flow el estado de la suscripción y sus identificadores.',
       'Contenido que nos envías por el formulario de contacto o por correo.',
     ],
   },
@@ -30,7 +30,7 @@ const SECCIONES: SeccionLegal[] = [
     parrafos: [
       'Prestar el servicio contratado, crear y administrar la cuenta, cobrar la suscripción y dar soporte (ejecución del contrato).',
       'Verificar el correo y prevenir fraude, abuso y ataques, y mantener la seguridad de la Plataforma (interés legítimo).',
-      'Enviar comunicaciones del servicio: códigos de verificación, recuperación de contraseña, avisos de cobro, mora o cambios en los términos.',
+      'Enviar comunicaciones del servicio: códigos de verificación, recuperación de contraseña, avisos de fin de la prueba gratuita, de cobro, de mora o de baja, y cambios en los términos.',
       'Cumplir obligaciones legales y tributarias y atender requerimientos de autoridades.',
       'No vendemos datos personales ni los usamos para publicidad de terceros.',
     ],
@@ -54,6 +54,7 @@ const SECCIONES: SeccionLegal[] = [
     titulo: 'Cuánto tiempo conservamos los datos',
     parrafos: [
       `Mientras la cuenta esté vigente. Tras cancelarla o suspenderla, conservamos la información por ${LEGAL.diasConservacionTrasCancelacion} días para permitir su reactivación o descarga y luego podremos eliminarla, salvo lo que debamos conservar por obligación legal (por ejemplo, respaldo de cobros y de la aceptación de los Términos).`,
+      `Si el cliente da de baja su cuenta desde la plataforma, conservamos su información durante ${LEGAL.diasEliminacionTrasBaja} días por si pide reactivarla y luego eliminamos de forma definitiva todos los datos de la cuenta (empresa, usuarios, sucursales, ventas, productos, clientes, comprobantes y registro de actividad), y borramos su cliente en Flow.`,
       'Los códigos de verificación y enlaces de recuperación se eliminan automáticamente poco después de vencer.',
     ],
   },

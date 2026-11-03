@@ -25,6 +25,9 @@ export interface Caracteristica {
 
 export const MONEDA = 'CLP';
 
+/** Días de prueba gratuita sin tarjeta. Debe coincidir con SUSCRIPCION_PRUEBA_DIAS en el backend (Render). */
+export const DIAS_PRUEBA = 30;
+
 export const CARACTERISTICAS: Caracteristica[] = [
   { id: 'pos', categoria: 'Ventas y caja', nombre: 'Punto de venta web', detalle: 'Venta rápida con buscador y lector de código de barras (también con la cámara del celular).' },
   { id: 'pagos', categoria: 'Ventas y caja', nombre: 'Múltiples formas de pago', detalle: 'Efectivo, tarjeta, transferencia, crédito (fiado) y vales.' },

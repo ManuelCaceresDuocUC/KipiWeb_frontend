@@ -1,5 +1,6 @@
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { CheckCircle2, XCircle } from 'lucide-react';
+import { haySesionValida } from '../helpers/session';
 
 export const RegistroExitoso = () => {
   const [searchParams] = useSearchParams();
@@ -7,6 +8,8 @@ export const RegistroExitoso = () => {
   const status = searchParams.get('status');
 
   const esExito = status === 'success';
+  // Quien activó su suscripción desde el portal ya tiene sesión iniciada: vuelve a su cuenta, no al login.
+  const conSesion = haySesionValida();
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8 font-sans text-slate-800">
@@ -17,10 +20,12 @@ export const RegistroExitoso = () => {
             <CheckCircle2 className="w-16 h-16 text-green-500 mb-4" />
             <h2 className="text-2xl font-bold text-slate-900 mb-2">¡Suscripción Exitosa!</h2>
             <p className="text-slate-600 mb-8">
-              Tu tarjeta quedó registrada y tu suscripción está activa. Ya puedes iniciar sesión con el usuario y la contraseña que creaste.
+              {conSesion
+                ? 'Tu tarjeta quedó registrada y tu suscripción está activa. Ya puedes seguir usando KIPI sin restricciones.'
+                : 'Tu tarjeta quedó registrada y tu suscripción está activa. Ya puedes iniciar sesión con el usuario y la contraseña que creaste.'}
             </p>
-            <Link to="/login" className="w-full bg-slate-900 text-white font-bold py-3 rounded hover:bg-slate-800 transition block">
-              Ir al Inicio de Sesión
+            <Link to={conSesion ? '/home' : '/login'} className="w-full bg-slate-900 text-white font-bold py-3 rounded hover:bg-slate-800 transition block">
+              {conSesion ? 'Volver a KIPI' : 'Ir al Inicio de Sesión'}
             </Link>
           </div>
         ) : (
@@ -31,10 +36,10 @@ export const RegistroExitoso = () => {
               No pudimos confirmar tu tarjeta o tu suscripción. Si el problema continúa, escríbenos a kipisofts@gmail.com.
             </p>
             <button 
-              onClick={() => navigate('/registroempresa')} 
+              onClick={() => navigate(conSesion ? '/administracion' : '/registroempresa')} 
               className="w-full border border-slate-300 text-slate-700 font-bold py-3 rounded hover:bg-slate-50 transition"
             >
-              Volver al registro
+              {conSesion ? 'Volver a Administración' : 'Volver al registro'}
             </button>
           </div>
         )}

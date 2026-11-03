@@ -7,7 +7,7 @@ import { NavbarPublico } from '../components/publico/NavbarPublico';
 import { FooterPublico } from '../components/publico/FooterPublico';
 import { MaquetaPOS } from '../components/publico/MaquetaPOS';
 import { TarjetaPlan } from '../components/publico/TarjetaPlan';
-import { PLAN_PRINCIPAL, formatoPrecio } from '../config/planes';
+import { DIAS_PRUEBA, PLAN_PRINCIPAL, formatoPrecio } from '../config/planes';
 import { CONTACTO, enlaceCorreo } from '../config/contacto';
 
 const FUNCIONES = [
@@ -20,15 +20,17 @@ const FUNCIONES = [
 ];
 
 const PASOS = [
-  { n: '1', titulo: 'Crea tu cuenta', texto: 'Registra tu empresa, tus sucursales y las cuentas de tu equipo en un solo formulario.' },
-  { n: '2', titulo: 'Activa tu suscripción', texto: 'Inscribes tu tarjeta de forma segura con Flow y tu cuenta queda activa al instante.' },
-  { n: '3', titulo: 'Carga tus productos y vende', texto: 'Agrega tu catálogo, abre tu primer turno y empieza a vender desde cualquier computador.' },
+  { n: '1', titulo: 'Crea tu cuenta, sin tarjeta', texto: `Registra tu empresa, tus sucursales y las cuentas de tu equipo en un solo formulario. Tienes ${DIAS_PRUEBA} días gratis con todo incluido.` },
+  { n: '2', titulo: 'Carga tus productos y vende', texto: 'Agrega tu catálogo, abre tu primer turno y empieza a vender desde cualquier computador.' },
+  { n: '3', titulo: 'Activa tu suscripción si te sirve', texto: 'Al terminar la prueba inscribes tu tarjeta de forma segura con Flow. Si prefieres no continuar, das de baja tu cuenta desde el sistema.' },
 ];
 
 const PREGUNTAS = [
   { q: '¿Necesito instalar algo?', a: 'No. KIPI funciona 100 % en el navegador, desde cualquier computador, tablet o celular con internet.' },
   { q: '¿Cómo emito boletas y facturas electrónicas?', a: 'Contratas un proveedor de facturación autorizado por el SII (por ejemplo Haulmer/OpenFactura) y pegas su API Key en KIPI. El costo de ese proveedor es aparte y lo pagas directamente a él.' },
-  { q: '¿Cómo se paga la suscripción?', a: `Con tarjeta, a través de Flow. El plan cuesta ${formatoPrecio(PLAN_PRINCIPAL.precioMensual)} al mes y se cobra automáticamente.` },
+  { q: `¿Cómo funciona la prueba gratuita de ${DIAS_PRUEBA} días?`, a: `Creas tu cuenta sin ingresar tarjeta y usas KIPI completo durante ${DIAS_PRUEBA} días. Te avisamos por correo antes de que termine. Si no activas tu suscripción, la cuenta queda en modo solo lectura y no se te cobra nada.` },
+  { q: '¿Cómo se paga la suscripción?', a: `Cuando termine la prueba (o antes, si quieres), inscribes tu tarjeta en Flow. El plan cuesta ${formatoPrecio(PLAN_PRINCIPAL.precioMensual)} al mes y el cobro es automático desde que activas la suscripción.` },
+  { q: '¿Puedo cancelar o borrar mi cuenta?', a: 'Sí. Durante la prueba puedes dar de baja tu cuenta desde Administración: tus datos se eliminan definitivamente tras un plazo de gracia, por si fue un error. Una vez activada la suscripción, la cancelas escribiéndonos y mantienes el acceso hasta el fin del período pagado.' },
   { q: '¿Puedo tener varias sucursales y usuarios?', a: 'Sí. Puedes registrar varias sucursales, asignarles personal y definir quién es administrador y quién cajero.' },
   { q: '¿Qué pasa si no se logra cobrar mi suscripción?', a: 'Tienes 7 días de gracia con uso normal para regularizar el pago. Después la cuenta queda en modo solo lectura (puedes consultar tu información y pagar) hasta que se normalice.' },
   { q: '¿Me ayudan a empezar?', a: `Sí, escríbenos a ${CONTACTO.correo} o por WhatsApp y te acompañamos en la puesta en marcha.` },
@@ -77,7 +79,7 @@ export const LandingKIPI = () => {
                 to="/registroempresa"
                 className="bg-slate-900 hover:bg-slate-700 text-white px-6 py-3.5 rounded-lg font-semibold text-sm transition-colors shadow-sm flex items-center justify-center gap-2"
               >
-                Crear mi cuenta <ChevronRight className="w-4 h-4 text-slate-400" />
+                Probar gratis {DIAS_PRUEBA} días <ChevronRight className="w-4 h-4 text-slate-400" />
               </Link>
               <Link
                 to="/planes"
@@ -87,7 +89,7 @@ export const LandingKIPI = () => {
               </Link>
             </div>
             <p className="text-sm text-slate-500">
-              Desde <strong className="text-slate-800">{formatoPrecio(PLAN_PRINCIPAL.precioMensual)}</strong> al mes · Pago con tarjeta vía Flow
+              {DIAS_PRUEBA} días gratis, sin tarjeta · Luego <strong className="text-slate-800">{formatoPrecio(PLAN_PRINCIPAL.precioMensual)}</strong> al mes
             </p>
           </div>
 
@@ -208,7 +210,7 @@ export const LandingKIPI = () => {
           <div className="rounded-3xl bg-slate-900 text-white px-8 py-12 flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
               <h2 className="text-2xl font-bold tracking-tight">¿Listo para ordenar tu local?</h2>
-              <p className="text-slate-400 text-sm mt-1">Crea tu cuenta y empieza a vender hoy.</p>
+              <p className="text-slate-400 text-sm mt-1">Crea tu cuenta gratis, sin tarjeta, y empieza a vender hoy.</p>
             </div>
             <Link to="/registroempresa" className="bg-white hover:bg-slate-100 text-slate-900 px-7 py-3 rounded-lg font-semibold text-sm whitespace-nowrap">
               Crear mi cuenta

@@ -67,7 +67,7 @@ export const Planes = () => {
 
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl bg-slate-900 text-white p-8">
             <div>
-              <h3 className="text-lg font-semibold">¿Dudas antes de contratar?</h3>
+              <h3 className="text-lg font-semibold">¿Dudas antes de probar?</h3>
               <p className="text-sm text-slate-400">Escríbenos y te ayudamos a decidir.</p>
             </div>
             <div className="flex gap-3">
@@ -75,7 +75,7 @@ export const Planes = () => {
                 Escribir
               </a>
               <Link to="/registroempresa" className="px-5 py-2.5 rounded-lg bg-white text-slate-900 text-sm font-semibold hover:bg-slate-100">
-                Contratar
+                Probar gratis
               </Link>
             </div>
           </div>

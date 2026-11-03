@@ -8,16 +8,20 @@
  * LEGAL_TERMINOS_VERSION en Render con el mismo valor. Mientras no coincidan, el registro se rechaza.
  */
 export const LEGAL = {
-  version: '2026-11-02',
-  vigenteDesde: '2 de noviembre de 2026',
+  version: '2026-11-03',
+  vigenteDesde: '3 de noviembre de 2026',
   titular: {
-    razonSocial: 'LOS CÁCERES SPA',
-    rut: '78255686-K',
-    domicilio: 'ALEMANIA ST 61',
-    ciudadTribunales: 'VALPARAÍSO',
+    razonSocial: '[COMPLETAR: razón social de la SpA]',
+    rut: '[COMPLETAR: RUT de la SpA]',
+    domicilio: '[COMPLETAR: domicilio]',
+    ciudadTribunales: '[COMPLETAR: ciudad, p. ej. Santiago]',
   },
   /** Días que se conservan los datos de una cuenta cancelada o suspendida antes de eliminarlos. [CONFIRMAR] */
   diasConservacionTrasCancelacion: 90,
+  /** Días entre que el cliente da de baja su cuenta (prueba) y la eliminación definitiva. Debe coincidir con SUSCRIPCION_BAJA_DIAS (Render). */
+  diasEliminacionTrasBaja: 30,
+  /** Días de aviso por correo antes de dar de baja una cuenta con la prueba vencida y sin actividad. */
+  diasAvisoBajaInactiva: 15,
   diasGraciaMora: 7,
   /** true si el precio publicado incluye IVA. [CONFIRMAR] */
   precioIncluyeIva: true,

@@ -13,6 +13,7 @@ import { apiFetch, leerError } from '../helpers/apiFetch';
 import { EstadoCuentaCliente } from '../components/EstadoCuentaCliente';
 import { GestionEquipo } from '../components/GestionEquipo';
 import { RegistroActividad } from '../components/RegistroActividad';
+import { PanelSuscripcion } from '../components/PanelSuscripcion';
 // Interfaz para extender los campos opcionales/dinámicos de Cuadratura sin recurrir a 'any'
 interface CuadraturaExtendida {
   id: number | string;
@@ -446,6 +447,9 @@ export const Administracion = () => {
 
         {/* COLUMNA DERECHA */}
         <div className="space-y-8">
+          {/* SUSCRIPCIÓN: estado, activación con tarjeta y baja de la cuenta */}
+          <PanelSuscripcion />
+
           {/* 🧾 FACTURACIÓN ELECTRÓNICA & DTE */}
           <div className="bg-white rounded shadow-sm border border-slate-200 p-6">
             <div className="flex items-center justify-between mb-1">

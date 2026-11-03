@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
-import { CARACTERISTICAS, formatoPrecio, type Plan } from '../../config/planes';
+import { CARACTERISTICAS, DIAS_PRUEBA, formatoPrecio, type Plan } from '../../config/planes';
 
 /** Card de un plan con botón de contratar → registro. `resumida` muestra solo las primeras características. */
 export const TarjetaPlan = ({ plan, resumida = false }: { plan: Plan; resumida?: boolean }) => {
@@ -25,7 +25,7 @@ export const TarjetaPlan = ({ plan, resumida = false }: { plan: Plan; resumida?:
         <span className="text-4xl font-bold tracking-tight text-slate-900">{formatoPrecio(plan.precioMensual)}</span>
         <span className="text-sm text-slate-500">/ mes</span>
       </p>
-      <p className="text-xs text-slate-400 mt-1">Cobro mensual automático con tarjeta, a través de Flow.</p>
+      <p className="text-xs text-slate-400 mt-1">{DIAS_PRUEBA} días gratis, sin tarjeta. Después, cobro mensual con tarjeta a través de Flow.</p>
 
       <Link
         to="/registroempresa"
@@ -33,7 +33,7 @@ export const TarjetaPlan = ({ plan, resumida = false }: { plan: Plan; resumida?:
           plan.destacado ? 'bg-slate-900 text-white hover:bg-slate-700' : 'border border-slate-300 text-slate-800 hover:bg-slate-50'
         }`}
       >
-        Contratar {plan.nombre}
+        Probar gratis {DIAS_PRUEBA} días
       </Link>
 
       <ul className="mt-6 space-y-2.5 text-sm text-slate-700">

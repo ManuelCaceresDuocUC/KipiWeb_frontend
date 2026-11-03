@@ -1,7 +1,7 @@
 import { LayoutLegal, type SeccionLegal } from '../components/publico/LayoutLegal';
 import { LEGAL } from '../config/legal';
 import { CONTACTO } from '../config/contacto';
-import { PLAN_PRINCIPAL, formatoPrecio } from '../config/planes';
+import { DIAS_PRUEBA, PLAN_PRINCIPAL, formatoPrecio } from '../config/planes';
 
 const t = LEGAL.titular;
 const iva = LEGAL.precioIncluyeIva ? 'IVA incluido' : 'más IVA';
@@ -29,6 +29,16 @@ const SECCIONES: SeccionLegal[] = [
     ],
   },
   {
+    titulo: 'Prueba gratuita',
+    parrafos: [
+      `Toda empresa nueva dispone de una prueba gratuita de ${DIAS_PRUEBA} días corridos, contados desde su registro, con todas las funciones del plan y sin necesidad de ingresar una tarjeta. Durante la prueba no se realiza ningún cobro. El Prestador podrá negar una nueva prueba a una empresa que ya hubiera usado una, o cuando detecte abuso de esta modalidad.`,
+      `Antes de que termine la prueba procuraremos avisar por correo al administrador (aproximadamente 10 y 3 días antes, y al vencer). Los avisos son una cortesía: la fecha de término es la que indica la Plataforma, y el Cliente es responsable de revisarla aunque el correo no llegue.`,
+      'Terminada la prueba, la cuenta queda en modo de solo lectura: el Cliente puede consultar su información, pero no registrar ventas ni modificar datos, hasta que active la suscripción. No se cobra nada ni se borran datos por el solo hecho de que termine la prueba.',
+      `Para activar la suscripción, el administrador inscribe su tarjeta desde la sección Administración, en el sitio seguro de Flow. Al inscribirla, el Cliente autoriza el cobro mensual y automático de ${formatoPrecio(PLAN_PRINCIPAL.precioMensual)} (${iva}) y la cuenta vuelve a funcionar con normalidad. El primer cobro se realiza en el momento de la activación; si el Cliente activa antes de que termine la prueba, los días de prueba restantes no se acumulan ni se descuentan.`,
+      `Una cuenta cuya prueba terminó y que no se activa ni se da de baja permanecerá en solo lectura. Pasados al menos ${LEGAL.diasAvisoBajaInactiva} días desde un aviso por correo, el Prestador podrá darla de baja y eliminar sus datos conforme a la sección "Baja de la cuenta y eliminación de datos".`,
+    ],
+  },
+  {
     titulo: 'Plan, precio y forma de pago',
     parrafos: [
       `El ${PLAN_PRINCIPAL.nombre} tiene un valor de ${formatoPrecio(PLAN_PRINCIPAL.precioMensual)} mensuales (${iva}), en pesos chilenos, e incluye las funciones descritas en la página de planes.`,
@@ -39,8 +49,16 @@ const SECCIONES: SeccionLegal[] = [
   {
     titulo: 'Renovación, cancelación y reembolsos',
     parrafos: [
-      'La suscripción se renueva automáticamente cada mes. El Cliente puede cancelarla en cualquier momento solicitándolo por escrito a ' + CONTACTO.correo + '. Tras la cancelación conservará el acceso hasta el fin del período ya pagado y no se cobrarán nuevos períodos.',
+      'La suscripción se renueva automáticamente cada mes. El Cliente que ya activó su suscripción puede cancelarla en cualquier momento solicitándolo por escrito a ' + CONTACTO.correo + '. Tras la cancelación conservará el acceso hasta el fin del período ya pagado y no se cobrarán nuevos períodos.',
       'Los períodos ya cobrados no son reembolsables, salvo error de cobro imputable al Prestador o que la ley disponga otra cosa de manera imperativa.',
+    ],
+  },
+  {
+    titulo: 'Baja de la cuenta y eliminación de datos',
+    parrafos: [
+      `Mientras la cuenta esté en prueba (o con la prueba terminada y sin suscripción), el administrador puede darla de baja desde la sección Administración, confirmando con el RUT de la empresa. La baja cierra la cuenta de inmediato: ningún usuario de la empresa podrá ingresar y no se realizará ningún cobro.`,
+      `Los datos del Cliente (ventas, productos, clientes, usuarios, comprobantes y demás información cargada) se conservan durante ${LEGAL.diasEliminacionTrasBaja} días desde la baja, para que el Cliente pueda pedir su reactivación escribiendo a ${CONTACTO.correo}. Vencido ese plazo se eliminan de forma definitiva e irreversible. El Cliente es responsable de respaldar la información que necesite antes de dar de baja su cuenta.`,
+      'Si el Cliente ya activó una suscripción de pago, la baja de la cuenta se gestiona escribiendo a ' + CONTACTO.correo + ', para evitar cierres accidentales y cuidar los períodos ya pagados.',
     ],
   },
   {

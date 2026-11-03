@@ -1,12 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { Link } from 'react-router-dom'; 
+import { Link, useNavigate } from 'react-router-dom';
 import { Building2, User, Plus, Trash2, ShieldAlert, ArrowLeft, Loader2, Store, MapPin } from 'lucide-react';
 import Swal from 'sweetalert2'; 
 import { esRutValido } from '../helpers/rut';
 import { apiFetch, leerError } from '../helpers/apiFetch';
 import { LEGAL } from '../config/legal';
 import { Turnstile, turnstileActivo } from '../components/publico/Turnstile';
-import { PLAN_PRINCIPAL, formatoPrecio } from '../config/planes';
+import { DIAS_PRUEBA, PLAN_PRINCIPAL, formatoPrecio } from '../config/planes';
 import { Logo } from '../components/publico/Logo';
 
 interface SucursalItem {
@@ -25,6 +25,7 @@ interface EmpleadoInmediato {
 }
 
 export const RegistroEmpresa = () => {
+  const navigate = useNavigate();
 
   // 1. Datos legales de la Empresa
   const [empresa, setEmpresa] = useState({
@@ -261,18 +262,17 @@ export const RegistroEmpresa = () => {
     // Confirmación explícita de lo que se está contratando
     const confirmacion = await Swal.fire({
       icon: 'question',
-      title: 'Confirma tu contratación',
+      title: `Comienza tu prueba gratuita de ${DIAS_PRUEBA} días`,
       html: `<div style="text-align:left;font-size:14px;line-height:1.5">
         <p><b>${currentEmpresa.razon_social.trim().replace(/</g, '&lt;')}</b> (${currentEmpresa.rut_empresa.trim().replace(/</g, '&lt;')})</p>
-        <p style="margin-top:8px">Contratas el <b>${PLAN_PRINCIPAL.nombre}</b> por <b>${formatoPrecio(PLAN_PRINCIPAL.precioMensual)} al mes</b>${LEGAL.precioIncluyeIva ? ' (IVA incluido)' : ' (más IVA)'}.</p>
+        <p style="margin-top:8px">Pruebas el <b>${PLAN_PRINCIPAL.nombre}</b> <b>${DIAS_PRUEBA} días gratis, sin ingresar tarjeta</b>.</p>
         <ul style="margin-top:8px;padding-left:18px;list-style:disc">
-          <li>Se cobrará con tu tarjeta en forma <b>automática cada mes</b> hasta que canceles.</li>
-          <li>Puedes cancelar cuando quieras escribiendo a nuestro correo; mantienes el acceso hasta el fin del período pagado.</li>
-          <li>Los períodos ya cobrados no se reembolsan.</li>
-          <li>Si un cobro falla tienes ${LEGAL.diasGraciaMora} días de gracia antes de pasar a solo lectura.</li>
+          <li>Te avisaremos por correo antes de que termine la prueba.</li>
+          <li>Para seguir después, activas tu suscripción de <b>${formatoPrecio(PLAN_PRINCIPAL.precioMensual)} al mes</b>${LEGAL.precioIncluyeIva ? ' (IVA incluido)' : ' (más IVA)'} inscribiendo tu tarjeta; el cobro mensual parte al activarla.</li>
+          <li>Si no activas, tu cuenta queda en solo lectura y no se te cobra nada. También puedes dar de baja tu cuenta cuando quieras.</li>
         </ul></div>`,
       showCancelButton: true,
-      confirmButtonText: 'Sí, continuar al pago',
+      confirmButtonText: 'Crear mi cuenta',
       cancelButtonText: 'Revisar',
       confirmButtonColor: '#0F172A',
     });
@@ -321,8 +321,14 @@ export const RegistroEmpresa = () => {
         throw new Error(await leerError(response, 'Error en el servidor al registrar la empresa'));
       }
 
-      const data = await response.json();
-      window.location.href = data.url_pago;
+      await Swal.fire({
+        icon: 'success',
+        title: '¡Tu cuenta está lista!',
+        html: `Tu prueba gratuita de <b>${DIAS_PRUEBA} días</b> ya comenzó. Inicia sesión con el usuario y la contraseña que creaste.`,
+        confirmButtonText: 'Ir a iniciar sesión',
+        confirmButtonColor: '#0F172A',
+      });
+      navigate('/login');
 
     } catch (err: unknown) {
       const mensaje = err instanceof Error ? err.message : String(err);
@@ -337,7 +343,7 @@ export const RegistroEmpresa = () => {
       {loading && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-white">
           <Loader2 className="w-10 h-10 animate-spin mb-2" />
-          <p className="font-semibold text-sm">Conectando con Flow…</p>
+          <p className="font-semibold text-sm">Creando tu cuenta…</p>
         </div>
       )}
 
@@ -349,7 +355,7 @@ export const RegistroEmpresa = () => {
               <span>Volver al Inicio</span>
             </Link>
             <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">Crea tu cuenta KIPI</h1>
-            <p className="text-slate-500 text-sm mt-0.5">Completa los datos de tu empresa. El último paso es inscribir tu tarjeta de forma segura con Flow.</p>
+            <p className="text-slate-500 text-sm mt-0.5">Completa los datos de tu empresa y empieza tu prueba gratuita. No necesitas tarjeta.</p>
           </div>
           <Logo />
         </div>
@@ -362,8 +368,8 @@ export const RegistroEmpresa = () => {
             <Link to="/planes" target="_blank" className="text-xs text-slate-500 underline underline-offset-2 hover:text-slate-800">Ver qué incluye</Link>
           </div>
           <div className="sm:text-right">
-            <p className="text-2xl font-bold text-slate-900">{formatoPrecio(PLAN_PRINCIPAL.precioMensual)} <span className="text-sm font-normal text-slate-500">/ mes</span></p>
-            <p className="text-xs text-slate-500">Cobro mensual automático con tarjeta (Flow)</p>
+            <p className="text-2xl font-bold text-slate-900">{DIAS_PRUEBA} días gratis</p>
+            <p className="text-xs text-slate-500">Sin tarjeta. Después, {formatoPrecio(PLAN_PRINCIPAL.precioMensual)} / mes al activar tu suscripción</p>
           </div>
         </div>
 
@@ -497,7 +503,7 @@ export const RegistroEmpresa = () => {
               <p className="text-sm text-emerald-700 font-medium">✓ Correo verificado: {admin.correo.trim()}</p>
             ) : (
               <>
-                <p className="text-xs text-slate-500">Te enviaremos un código de 6 dígitos al correo del administrador. Es necesario para continuar al pago.</p>
+                <p className="text-xs text-slate-500">Te enviaremos un código de 6 dígitos al correo del administrador. Es necesario para crear tu cuenta.</p>
                 {!codigoEnviado && <Turnstile onToken={setCaptcha} reinicio={reinicioCaptcha} />}
                 <div className="flex flex-col sm:flex-row gap-2">
                   <button type="button" onClick={pedirCodigo} disabled={procesandoCodigo || !formatoCorreoOk} className="px-4 py-2.5 rounded border border-slate-300 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50">
@@ -583,7 +589,7 @@ export const RegistroEmpresa = () => {
               He leído y acepto los{' '}
               <Link to="/terminos" target="_blank" className="font-semibold underline underline-offset-2">Términos y Condiciones</Link> y la{' '}
               <Link to="/privacidad" target="_blank" className="font-semibold underline underline-offset-2">Política de Privacidad</Link>,
-              incluido el cobro mensual automático de {formatoPrecio(PLAN_PRINCIPAL.precioMensual)}. Declaro tener facultades para contratar en nombre de la empresa.
+              incluido que, terminada la prueba de {DIAS_PRUEBA} días, para seguir usando KIPI debo activar la suscripción de {formatoPrecio(PLAN_PRINCIPAL.precioMensual)} mensuales inscribiendo mi tarjeta. Declaro tener facultades para contratar en nombre de la empresa.
             </span>
           </label>
 
@@ -593,10 +599,10 @@ export const RegistroEmpresa = () => {
               disabled={loading}
               className="w-full bg-slate-900 text-white font-bold py-3 rounded hover:bg-slate-800 transition flex items-center justify-center gap-2 shadow-md disabled:opacity-60"
             >
-              Continuar al pago con Flow
+              Crear mi cuenta gratis
             </button>
             <p className="text-center text-xs text-slate-500 mt-3">
-              Al continuar inscribirás tu tarjeta en el sitio seguro de Flow. KIPI no almacena los datos de tu tarjeta.
+              No te pediremos tarjeta ahora. Cuando decidas activar tu suscripción, la inscribirás en el sitio seguro de Flow; KIPI no almacena los datos de tu tarjeta.
             </p>
           </div>
         </div>
