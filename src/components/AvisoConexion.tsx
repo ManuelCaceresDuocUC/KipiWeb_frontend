@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { EVENTO_CONEXION_RESTABLECIDA } from '../helpers/conexion';
 
 type Estado = 'ok' | 'lenta' | 'sin-conexion';
 
@@ -43,6 +44,7 @@ export const AvisoConexion = () => {
       if (!vivo) return;
       if (previo.current !== 'ok' && nuevo === 'ok') {
         setRecuperada(true);
+        window.dispatchEvent(new CustomEvent(EVENTO_CONEXION_RESTABLECIDA));
         clearTimeout(aviso);
         aviso = setTimeout(() => vivo && setRecuperada(false), MENSAJE_RECUPERADA_MS);
       } else if (nuevo !== 'ok') {

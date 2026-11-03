@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { apiFetch, leerError } from '../helpers/apiFetch';
+import { apiFetch, esErrorDeConexion, leerError } from '../helpers/apiFetch';
+import { kvGuardar, kvLeer } from '../helpers/almacenOffline';
+import { claveCaja } from '../helpers/session';
 import Swal from 'sweetalert2';
 import type { ResumenCaja } from '../types/ventas.types';
 
@@ -30,9 +32,15 @@ export const useCaja = () => {
         if (response.ok) {
           const data = await response.json();
           setCajaAbierta(data.abierta); 
+          void kvGuardar(claveCaja(), { abierta: Boolean(data.abierta), guardadoEn: Date.now() });
         }
       } catch (error) {
         console.error("Error de conexión con el servidor:", error);
+        if (esErrorDeConexion(error)) {
+          // Sin conexión: se confía en el último estado conocido para no dejar la caja bloqueada
+          const copia = await kvLeer<{ abierta: boolean }>(claveCaja());
+          if (copia?.abierta) setCajaAbierta(true);
+        }
       } finally {
         setCargandoCaja(false);
       }
@@ -67,6 +75,7 @@ export const useCaja = () => {
       });
       if (!response.ok) throw new Error(await leerError(response, 'Error al procesar la apertura de caja'));
       setCajaAbierta(true);
+      void kvGuardar(claveCaja(), { abierta: true, guardadoEn: Date.now() });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       Swal.fire('Error', 'No fue posible abrir la caja: ' + errorMessage, 'error');
@@ -189,6 +198,7 @@ export const useCaja = () => {
       if (!response.ok) throw new Error(await leerError(response, 'Error en la respuesta del servidor'));
       
       setCajaAbierta(false);
+      void kvGuardar(claveCaja(), { abierta: false, guardadoEn: Date.now() });
       setMontoApertura('');
       localStorage.removeItem('cierrePendiente');
       Swal.fire('Turno Finalizado', 'El cierre operativo y la respectiva cuadratura han sido almacenados correctamente.', 'success');

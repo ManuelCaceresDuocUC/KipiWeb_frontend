@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
-import { apiFetch, leerError } from "../helpers/apiFetch"; // ✨ 1. Importación del helper
+import { apiFetch, esErrorDeConexion, leerError } from "../helpers/apiFetch"; // ✨ 1. Importación del helper
+import { kvGuardar, kvLeer } from "../helpers/almacenOffline";
+import { claveCatalogo } from "../helpers/session";
 
 export interface Producto {
     id: number;
@@ -34,7 +36,20 @@ export interface IngredienteReceta {
     };
 }
 
-export const useInventario = () => {
+interface OpcionesInventario {
+    /** Guarda una copia del catálogo en el dispositivo y la usa si no hay conexión (para la caja). */
+    copiaSinConexion?: boolean;
+}
+
+interface CatalogoGuardado {
+    guardadoEn: number;
+    productos: Producto[];
+}
+
+export const useInventario = (opciones: OpcionesInventario = {}) => {
+    const { copiaSinConexion = false } = opciones;
+    // Si no es null, la lista viene de la copia del dispositivo (momento en que se guardó)
+    const [catalogoGuardadoEn, setCatalogoGuardadoEn] = useState<number | null>(null);
     const [productos, setProductos] = useState<Producto[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -59,7 +74,22 @@ export const useInventario = () => {
             const datos = await respuesta.json();
             const listaProductos = datos.content ? datos.content : datos;
             setProductos(listaProductos);
+            setCatalogoGuardadoEn(null);
+            if (copiaSinConexion && !sucursal) {
+                // Para vender sin conexión no hacen falta costos ni recetas: no se guardan en el dispositivo
+                const liviana = (listaProductos as Producto[]).map((p) => ({ ...p, costo: null, receta: undefined }));
+                void kvGuardar(claveCatalogo(), { guardadoEn: Date.now(), productos: liviana } satisfies CatalogoGuardado);
+            }
         } catch (err: unknown) {
+            if (copiaSinConexion && esErrorDeConexion(err)) {
+                const copia = await kvLeer<CatalogoGuardado>(claveCatalogo());
+                if (copia && copia.productos.length > 0) {
+                    setProductos(copia.productos);
+                    setCatalogoGuardadoEn(copia.guardadoEn);
+                    setError(null);
+                    return;
+                }
+            }
             const mensaje = err instanceof Error ? err.message : "Error desconocido";
             setError(mensaje);
             console.error("Error al cargar inventario", err);
@@ -172,6 +202,7 @@ export const useInventario = () => {
         sucursalId,
         setSucursalId,
         productos,
+        catalogoGuardadoEn,
         loading, 
         error,
         cargarProductos,   

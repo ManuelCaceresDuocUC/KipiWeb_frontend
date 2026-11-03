@@ -24,6 +24,7 @@ import { DetalleCarrito } from '../components/Ventas/UI/DetalleCarrito';
 import { DesglosePago } from '../components/Ventas/UI/DesglosePago';
 
 import { getSesion } from '../helpers/session';
+import { EVENTO_CONEXION_RESTABLECIDA } from '../helpers/conexion';
 export const Ventas = () => {
   // Para la UI solamente: el servidor identifica empresa y usuario por el token
   const empresaId = getSesion()?.empresa.id ?? 0;
@@ -37,7 +38,7 @@ export const Ventas = () => {
   const [menuAbierto, setMenuAbierto] = useState(false);
 
   // 1. Hooks de Negocio
-  const { productos, cargarProductos } = useInventario(); 
+  const { productos, cargarProductos, catalogoGuardadoEn } = useInventario({ copiaSinConexion: true }); 
   
   const ventasContext = useVentas(cargarProductos); 
   const { 
@@ -76,6 +77,14 @@ const clientesContext = useClientesPos(setClienteId);
   const totalBruto = totalVenta; 
   const neto = Math.round(totalBruto / 1.19);
   const iva = totalBruto - neto;
+
+  // Al volver la conexión se reemplaza el catálogo guardado por el actual del servidor
+  useEffect(() => {
+    const alVolver = () => { void cargarProductos(); };
+    window.addEventListener(EVENTO_CONEXION_RESTABLECIDA, alVolver);
+    return () => window.removeEventListener(EVENTO_CONEXION_RESTABLECIDA, alVolver);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Efecto para cerrar menús al clickear afuera
   useEffect(() => {
@@ -193,6 +202,12 @@ const clientesContext = useClientesPos(setClienteId);
           )}
         </div>
       </div>
+
+      {catalogoGuardadoEn && (
+        <div role="status" className="w-full max-w-6xl mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
+          Sin conexión: se usa el catálogo guardado en este equipo a las {new Date(catalogoGuardadoEn).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}. Precios y stock pueden no estar al día.
+        </div>
+      )}
 
       {/* 2. BUSCADOR DE PRODUCTOS */}
       <BuscadorVentas 

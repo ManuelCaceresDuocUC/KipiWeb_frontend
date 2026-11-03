@@ -1,3 +1,5 @@
+import { kvLimpiar } from './almacenOffline';
+
 // Única fuente de verdad de la sesión en el navegador.
 // El backend NO confía en nada de esto (identidad y empresa salen del JWT); aquí solo se usa para la UI.
 
@@ -68,6 +70,19 @@ export const limpiarSesion = (): void => {
   } catch {
     /* almacenamiento no disponible */
   }
+  // Las copias locales (catálogo, estado de caja) no deben quedar para el próximo usuario del equipo.
+  // Las ventas pendientes de envío NO se borran: son dinero ya cobrado.
+  void kvLimpiar();
+};
+
+/** Claves de las copias locales: separadas por empresa, sucursal y usuario. */
+export const claveCatalogo = (): string => {
+  const s = getSesion();
+  return `catalogo:${s?.empresa.id ?? 0}:${s?.sucursal?.id ?? 0}`;
+};
+export const claveCaja = (): string => {
+  const s = getSesion();
+  return `caja:${s?.empresa.id ?? 0}:${s?.id ?? 0}`;
 };
 
 export const esAdmin = (): boolean => getSesion()?.rol === 'admin';
