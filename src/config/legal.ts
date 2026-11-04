@@ -8,8 +8,8 @@
  * LEGAL_TERMINOS_VERSION en Render con el mismo valor. Mientras no coincidan, el registro se rechaza.
  */
 export const LEGAL = {
-  version: '2026-11-03',
-  vigenteDesde: '3 de noviembre de 2026',
+  version: '2026-11-04',
+  vigenteDesde: '4 de noviembre de 2026',
   titular: {
     razonSocial: 'LOS CACERES SPA',
     rut: '78255686-K',

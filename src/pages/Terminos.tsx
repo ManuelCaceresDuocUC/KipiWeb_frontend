@@ -17,7 +17,7 @@ const SECCIONES: SeccionLegal[] = [
   {
     titulo: 'El servicio',
     parrafos: [
-      'KIPI es un servicio de software como servicio (SaaS) accesible por internet que permite registrar ventas, controlar inventario y stock por sucursal, gestionar turnos de caja, clientes y usuarios, y conectar un proveedor externo de documentos tributarios electrónicos (DTE).',
+      'KIPI es un servicio de software como servicio (SaaS) accesible por internet que permite registrar ventas, controlar inventario y stock por sucursal, gestionar turnos de caja, clientes (incluido el crédito o "fiado") y usuarios, y conectar un proveedor externo de documentos tributarios electrónicos (DTE). Incluye, además, un modo de contingencia para seguir vendiendo cuando falla la conexión a internet, descrito más abajo.',
       'El Prestador puede mejorar, modificar o discontinuar funciones, procurando no afectar de manera sustancial el servicio contratado y avisando con anticipación razonable cuando el cambio sea relevante.',
     ],
   },
@@ -70,10 +70,28 @@ const SECCIONES: SeccionLegal[] = [
     ],
   },
   {
+    titulo: 'Funcionamiento con mala conexión o sin conexión',
+    parrafos: [
+      'KIPI incluye un modo de contingencia: cuando el equipo pierde la conexión con el servidor, la caja puede seguir registrando ventas pagadas en efectivo, con tarjeta (cobradas en la máquina del propio comercio) o por transferencia (confirmadas por el Cliente por otra vía). Esas ventas se guardan en el equipo y se envían a KIPI automáticamente cuando vuelve la conexión. El fiado (venta a crédito) no se puede registrar sin conexión.',
+      'Mientras una venta no llega a KIPI, no tiene boleta ni afecta el stock, los totales de caja ni los informes del servidor. La venta se considera registrada, y su documento tributario se emite, en el momento en que KIPI la recibe, que puede ser posterior al momento en que se realizó la venta. KIPI conserva además la hora real de la venta como dato de referencia. El Cliente es responsable de evaluar con su contador el efecto tributario de ese desfase y de decidir si usa este modo.',
+      'Al recibir una venta guardada sin conexión, KIPI la acepta aunque el precio o el stock hayan cambiado desde que se cobró: se registra al precio con que se cobró y el stock puede quedar en negativo. Esas ventas quedan marcadas y auditadas. Si KIPI rechaza una venta (por ejemplo, porque la caja ya se cerró o la cuenta está en solo lectura), queda a la vista del Cliente para que la resuelva.',
+      'Los datos que respaldan este modo (copia del catálogo, estado de la caja y ventas pendientes de envío) se almacenan en el navegador del equipo del Cliente. El Cliente es responsable de la custodia de ese equipo y de no borrar los datos del navegador, desinstalar la aplicación ni cerrar la sesión de forma que se pierdan ventas que aún no se enviaron. KIPI no puede recuperar ventas que no llegaron a sus servidores. El modo sin conexión requiere haber abierto la caja y cargado el catálogo previamente con conexión, y depende de las capacidades del navegador y del equipo.',
+    ],
+  },
+  {
+    titulo: 'Fiado (ventas a crédito) y comprobantes a clientes finales',
+    parrafos: [
+      'El fiado es una relación entre el Cliente y sus propios clientes. KIPI es solo una herramienta de registro: no evalúa la solvencia de nadie, no cobra ni garantiza deudas, y el Cliente es el único responsable de otorgar crédito, de su cobranza y de la veracidad de lo registrado.',
+      'Cada vez que se registra un fiado, KIPI envía automáticamente al correo del cliente final (si el Cliente lo tiene registrado en su ficha) un comprobante con el detalle de la compra, el monto, el total que adeuda y el vale en PDF. El Cliente es responsable de contar con el consentimiento o la base legal para registrar y usar ese correo y de informar a sus clientes de estos envíos. Si el cliente final no tiene correo registrado, no se envía nada.',
+      'Cuando no hay conexión, el fiado se anota en un vale de papel que KIPI permite imprimir con numeración propia y dos copias. El Cliente es responsable de la custodia de esos vales, de recabar la firma de su cliente y de registrarlos en KIPI con exactitud (número, fecha real, cliente, productos y montos). KIPI no verifica el papel ni las firmas: el registro refleja lo que el Cliente ingresa. Un mismo número de vale no puede registrarse dos veces.',
+    ],
+  },
+  {
     titulo: 'Documentos tributarios electrónicos (DTE)',
     parrafos: [
       'KIPI no es un emisor ni un proveedor autorizado de facturación electrónica. Los documentos (boletas, facturas, notas de crédito) los emite el proveedor autorizado por el SII que el Cliente contrata por su cuenta; KIPI se conecta a él mediante las credenciales que el Cliente ingresa (una API Key o, según el proveedor, el correo y la contraseña de su cuenta de ese proveedor). KIPI ofrece la conexión con los proveedores disponibles en la Plataforma, que pueden cambiar con el tiempo, y no garantiza la compatibilidad con otros. El costo, las condiciones, los límites de uso y la disponibilidad de ese proveedor son de su exclusiva responsabilidad.',
       'El Cliente es responsable de contar con la autorización y los folios necesarios ante el SII, de que los datos de su empresa que informe (RUT, razón social, giro, dirección y códigos de actividad económica) sean correctos y coincidan con los registrados en su proveedor y en el SII, de la correcta emisión, anulación y declaración de sus documentos, y de cumplir sus obligaciones tributarias. KIPI es una herramienta de apoyo y no constituye asesoría tributaria, contable ni legal. Si el proveedor falla o rechaza el documento, la venta puede quedar registrada con su documento pendiente de reintento o de revisión.',
+      'Las boletas de ventas guardadas sin conexión se emiten cuando la venta llega a KIPI; la fecha del documento será la de su emisión y no la de la venta. El comprobante interno que el equipo imprime sin conexión no tiene valor tributario.',
       'Al anular una venta que tiene boleta, KIPI solicita al proveedor la emisión de la nota de crédito correspondiente. Si esa nota no puede emitirse, el Cliente debe regularizarla directamente con su proveedor o ante el SII.',
       'El Cliente debe mantener sus credenciales de facturación en reserva y revocarlas o cambiarlas ante cualquier sospecha de uso indebido. KIPI las almacena cifradas y las usa solo para emitir y consultar los documentos del Cliente.',
     ],
@@ -101,7 +119,7 @@ const SECCIONES: SeccionLegal[] = [
     titulo: 'Disponibilidad y soporte',
     parrafos: [
       'El Prestador procura mantener el servicio disponible, pero no garantiza que sea ininterrumpido o libre de errores. Pueden existir mantenciones, fallas de proveedores externos (hosting, pagos, correo, facturación) o eventos fuera de su control. El soporte se presta por correo electrónico y WhatsApp en horario hábil.',
-      'Se recomienda al Cliente mantener un procedimiento alternativo de venta para contingencias.',
+      'El modo sin conexión permite continuar vendiendo en forma limitada, pero no reemplaza un procedimiento alternativo de venta; se recomienda al Cliente mantenerlo para contingencias.',
     ],
   },
   {
