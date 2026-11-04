@@ -4,7 +4,7 @@ import Swal from 'sweetalert2';
 // Hooks
 import { useInventario } from '../hooks/useInventario';
 import { useVentas } from '../hooks/useVentas';
-import { guardarImpresionAutomatica, impresionAutomaticaActiva } from '../helpers/impresion';
+import { copiasTicket, guardarCopiasTicket, guardarImpresionAutomatica, impresionAutomaticaActiva } from '../helpers/impresion';
 import { useCaja } from '../hooks/useCaja';
 import { useClientesPos } from '../hooks/useClientesPos';
 
@@ -55,6 +55,7 @@ export const Ventas = () => {
   } = ventasContext;
 
   const [imprimirAuto, setImprimirAuto] = useState(impresionAutomaticaActiva());
+  const [copias, setCopias] = useState<1 | 2>(copiasTicket());
 
   // 2. Hook de Caja
   const cajaContext = useCaja();
@@ -217,6 +218,17 @@ const clientesContext = useClientesPos(setClienteId);
                   checked={imprimirAuto}
                   onChange={(e) => { setImprimirAuto(e.target.checked); guardarImpresionAutomatica(e.target.checked); }}
                 />
+              </label>
+              <label className="flex items-center justify-between gap-3 w-full px-4 py-2.5 border-b border-slate-100 font-medium text-slate-700">
+                <span>Copias del comprobante</span>
+                <select
+                  value={copias}
+                  onChange={(e) => { const v = e.target.value === '2' ? 2 : 1; setCopias(v); guardarCopiasTicket(v); }}
+                  className="rounded border border-slate-300 bg-white px-1 py-0.5 text-sm"
+                >
+                  <option value={1}>1 (cliente)</option>
+                  <option value={2}>2 (cliente y local)</option>
+                </select>
               </label>
               <button onClick={() => { handleVerResumen(); setMenuAbierto(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">Resumen Financiero</button>
               <button onClick={() => { handleCerrarCaja(); setMenuAbierto(false); }} className="w-full text-left px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-medium">Cierre de Turno</button>

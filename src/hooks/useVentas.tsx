@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { apiFetch, ErrorConexion, esErrorDeConexion, leerError } from "../helpers/apiFetch";
 import type { LineaPago } from "../types/ventas.types";
-import { imprimirDocumentos, imprimirTicketLocal } from "../helpers/impresion";
+import { copiasTicket, imprimirDocumentos, imprimirTicketLocal } from "../helpers/impresion";
 import { agregarVentaPendiente, siguienteNumeroLocal, type VentaPendiente } from "../helpers/colaVentas";
 import { sinConexionSegura } from "../helpers/conexion";
 import { getSesion } from "../helpers/session";
@@ -206,6 +206,7 @@ export const useVentas = (
       monto: total,
       clienteId: clienteId ? Number(clienteId) : null,
       idempotencyKey: claveRef.current,
+      copiasTicket: copiasTicket(),
       items: carrito.map(p => ({ productoId: p.id, cantidad: p.cantidad })),
       pagos: pagos.map(l => ({
         metodo: l.metodo,

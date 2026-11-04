@@ -26,6 +26,25 @@ export const guardarImpresionAutomatica = (activa: boolean) => {
   }
 };
 
+const CLAVE_COPIAS = 'kipipos_copias_ticket';
+
+/** Copias del comprobante de venta: 1 (solo cliente, ahorra papel) o 2 (cliente y local). Por defecto, 1. */
+export const copiasTicket = (): 1 | 2 => {
+  try {
+    return localStorage.getItem(CLAVE_COPIAS) === '2' ? 2 : 1;
+  } catch {
+    return 1;
+  }
+};
+
+export const guardarCopiasTicket = (copias: 1 | 2) => {
+  try {
+    localStorage.setItem(CLAVE_COPIAS, String(copias));
+  } catch {
+    /* sin almacenamiento: queda el valor por defecto */
+  }
+};
+
 const aBlobUrl = (base64: string): string => {
   const binario = atob(base64);
   const bytes = new Uint8Array(binario.length);
