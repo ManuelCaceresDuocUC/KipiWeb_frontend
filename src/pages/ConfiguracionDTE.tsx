@@ -167,6 +167,22 @@ export const ConfiguracionDTE = () => {
           </div>
         )}
 
+        {/* GUÍA PASO A PASO */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded border border-blue-200 bg-blue-50 p-4">
+          <div>
+            <p className="text-sm font-semibold text-blue-900">¿Primera vez conectando un proveedor de boletas?</p>
+            <p className="text-xs text-blue-800 mt-0.5">Qué contratar, qué datos deben coincidir con el SII y cómo hacer tu primera prueba.</p>
+          </div>
+          <Link
+            to="/guia-dte"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded bg-blue-700 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-blue-800 text-center"
+          >
+            Ver guía paso a paso
+          </Link>
+        </div>
+
         <form onSubmit={handleGuardar} className="space-y-6">
           
           {/* SELECCIÓN DE PROVEEDOR */}
@@ -184,8 +200,9 @@ export const ConfiguracionDTE = () => {
                   className="w-full p-2.5 rounded border border-slate-300 bg-white focus:outline-none focus:border-slate-500 text-sm"
                 >
                   <option value="openfactura">OpenFactura (Haulmer)</option>
-                  <option value="simplefactura">SimpleFactura (beta, sin probar con cuenta real)</option>
-                  <option value="libredte">LibreDTE (beta, requiere plan de pago con API)</option>
+                  <option value="simplefactura">SimpleFactura</option>
+                  {/* LibreDTE ya no se ofrece; solo aparece si la empresa lo tenía configurado, para no perder su ajuste */}
+                  {config.proveedor === 'libredte' && <option value="libredte">LibreDTE (ya no disponible: elige otro proveedor)</option>}
                   <option value="ninguno">Deshabilitado (Solo boleta informativa)</option>
                 </select>
               </div>
@@ -202,6 +219,9 @@ export const ConfiguracionDTE = () => {
                 </select>
               </div>
             </div>
+            <p className="mt-3 text-xs text-slate-500">
+              Contratas el proveedor por tu cuenta. <Link to="/guia-dte" target="_blank" rel="noopener noreferrer" className="underline">Cómo elegirlo y conectarlo</Link>.
+            </p>
           </div>
 
           {/* CREDENCIALES DE API KEY */}
