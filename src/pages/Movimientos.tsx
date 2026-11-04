@@ -413,7 +413,7 @@ export const Movimientos = () => {
             )}
 
             {ventaDevolucion && (
-                <ModalDevolucion venta={ventaDevolucion} esAdmin={esAdmin} onClose={() => setVentaDevolucion(null)} />
+                <ModalDevolucion venta={ventaDevolucion} esAdmin={esAdmin} onClose={() => setVentaDevolucion(null)} onAnular={anularVenta} />
             )}
         </div>
     );

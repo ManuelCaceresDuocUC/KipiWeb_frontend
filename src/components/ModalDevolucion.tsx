@@ -28,13 +28,15 @@ interface Props {
   venta: Movimiento;
   esAdmin: boolean;
   onClose: () => void;
+  /** Abre el flujo de anulación de la venta (solo administradores). */
+  onAnular?: (venta: Movimiento) => void;
 }
 
 /**
  * Registro de una devolución o cambio de una venta. Es un registro de control: NO mueve la caja ni la deuda del
  * cliente ni emite documentos. El administrador puede, además, reponer el stock.
  */
-export const ModalDevolucion = ({ venta, esAdmin, onClose }: Props) => {
+export const ModalDevolucion = ({ venta, esAdmin, onClose, onAnular }: Props) => {
   const [previas, setPrevias] = useState<DevolucionRegistrada[]>([]);
   const [cargando, setCargando] = useState(true);
   const [tipo, setTipo] = useState<'DEVOLUCION' | 'CAMBIO'>('DEVOLUCION');
@@ -89,8 +91,34 @@ export const ModalDevolucion = ({ venta, esAdmin, onClose }: Props) => {
   const montoRef = seleccion.reduce((a, x) => a + Math.round(x.l.precio * x.c), 0);
   const puede = seleccion.length > 0 && !excede && motivo.trim().length >= 3 && !guardando;
 
+  // Se devuelve TODO lo vendido y nada se había devuelto antes: lo que corresponde es anular la venta
+  const devuelveTodo =
+    tipo === 'DEVOLUCION' && previas.length === 0 && lineas.length > 0 && lineas.every((l) => {
+      const c = seleccion.find((x) => x.l.productoId === l.productoId)?.c ?? 0;
+      return c >= l.cantidad - 1e-9;
+    });
+
   const guardar = async () => {
     if (!puede) return;
+    if (devuelveTodo && venta.estado !== 'ANULADA') {
+      const r = await Swal.fire({
+        icon: 'question',
+        title: 'Estás devolviendo toda la venta',
+        html: '<div style="text-align:left;font-size:13px">Si el cliente devuelve todo y se le reembolsa, lo correcto es <b>anular la venta</b>: repone el stock, corrige la caja y la deuda, y emite la nota de crédito si había boleta.<br><br>Registrar la devolución solo deja una anotación y <b>no mueve la caja</b>.</div>',
+        showDenyButton: esAdmin && Boolean(onAnular),
+        showCancelButton: true,
+        confirmButtonText: 'Solo registrar',
+        denyButtonText: 'Anular la venta',
+        cancelButtonText: 'Volver',
+        denyButtonColor: '#B91C1C',
+      });
+      if (r.isDenied && onAnular) {
+        onClose();
+        onAnular(venta);
+        return;
+      }
+      if (!r.isConfirmed) return;
+    }
     setGuardando(true);
     try {
       const res = await apiFetch(`${API_URL}/devoluciones`, {
@@ -135,6 +163,12 @@ export const ModalDevolucion = ({ venta, esAdmin, onClose }: Props) => {
             Esto deja un registro de lo que volvió. <b>No modifica la caja</b> ni la deuda del cliente, y no emite documentos
             tributarios (si la venta tenía boleta, la nota de crédito se gestiona aparte).
           </p>
+
+          {devuelveTodo && (
+            <p className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded p-2">
+              Estás devolviendo toda la venta. Si se reembolsa al cliente, conviene <b>anular la venta</b> en lugar de solo registrar.
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
             {(['DEVOLUCION', 'CAMBIO'] as const).map((t) => (
