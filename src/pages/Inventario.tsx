@@ -5,6 +5,8 @@ import { LectorCamara } from '../components/LectorCamara';
 import { useNavigate } from 'react-router-dom'; 
 import { apiFetch, leerError } from '../helpers/apiFetch';
 import { PanelStockSucursal } from '../components/PanelStockSucursal';
+import { ModalImportarProductos } from '../components/ModalImportarProductos';
+import { ModalEtiquetas } from '../components/ModalEtiquetas';
 
 interface ItemRecetaLocal {
   insumoId: number;
@@ -84,6 +86,8 @@ export const Inventario = () => {
   }, [usuarioRol]);
 
   const [showModalProducto, setShowModalProducto] = useState(false);
+  const [showImportar, setShowImportar] = useState(false);
+  const [showEtiquetas, setShowEtiquetas] = useState(false);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [guardando, setGuardando] = useState(false);
   
@@ -310,7 +314,29 @@ export const Inventario = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, [showModalProducto]);
 
-  const generarCodigoProvisional = () => `PROV-${Date.now()}`;
+  // Sin código: el servidor asigna un código interno propio (EAN-13, rango de uso en tienda)
+  const asignarCodigosInternos = async () => {
+    const prov = productos.filter((p) => (p.codigoBarras ?? '').startsWith('PROV-')).length;
+    const sin = productos.filter((p) => !(p.codigoBarras ?? '').trim()).length;
+    const r = await Swal.fire({
+      icon: 'question', title: 'Asignar códigos internos',
+      html: `<div style="text-align:left;font-size:14px">Se les creará un código de barras propio (EAN-13) a los productos que no tienen uno (${sin}).` +
+        (prov ? `<br><br><label><input type="checkbox" id="chk-prov"> También reemplazar los ${prov} códigos provisionales antiguos (PROV-…)</label>` : '') +
+        '<br><br>Después puedes imprimir las etiquetas.</div>',
+      showCancelButton: true, confirmButtonText: 'Asignar', cancelButtonText: 'Cancelar',
+      preConfirm: () => (document.getElementById('chk-prov') as HTMLInputElement | null)?.checked ?? false,
+    });
+    if (!r.isConfirmed) return;
+    try {
+      const res = await apiFetch(`${import.meta.env.VITE_API_URL}/productos/asignar-codigos`, { method: 'POST', body: JSON.stringify({ incluirProvisionales: r.value === true }) });
+      if (!res.ok) throw new Error(await leerError(res, 'No se pudieron asignar los códigos.'));
+      const d = await res.json();
+      await cargarProductos(sucursalId);
+      Swal.fire('Listo', `Se asignaron ${d.asignados} códigos.`, 'success');
+    } catch (e) {
+      Swal.fire('Error', e instanceof Error ? e.message : 'No se pudieron asignar los códigos.', 'error');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -330,7 +356,7 @@ export const Inventario = () => {
       }
     }
 
-    const codigoFinal = form.codigoBarras.trim() === "" ? generarCodigoProvisional() : form.codigoBarras;
+    const codigoFinal = form.codigoBarras.trim();
 
     const categoriaSeleccionada = form.categoriaId 
       ? categorias.find(c => Number(c.id) === Number(form.categoriaId))
@@ -432,9 +458,14 @@ export const Inventario = () => {
       <div className='w-full max-w-6xl bg-white rounded shadow-sm border border-slate-200 overflow-hidden'>
         <div className='p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center'>
           <h2 className='text-sm font-semibold text-slate-700 uppercase tracking-wide'>Registros ({productosFinales.length})</h2>
-          <button onClick={() => setShowModalProducto(true)} className="bg-slate-800 hover:bg-slate-900 transition-colors text-white font-medium py-1.5 px-4 rounded text-sm shadow-sm">
-            Nuevo Registro
-          </button>
+          <div className="flex flex-wrap gap-2 justify-end">
+            <button onClick={() => setShowImportar(true)} className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-medium py-1.5 px-3 rounded text-sm">Importar Excel/CSV</button>
+            <button onClick={asignarCodigosInternos} className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-medium py-1.5 px-3 rounded text-sm">Asignar códigos</button>
+            <button onClick={() => setShowEtiquetas(true)} className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-medium py-1.5 px-3 rounded text-sm">Etiquetas</button>
+            <button onClick={() => setShowModalProducto(true)} className="bg-slate-800 hover:bg-slate-900 transition-colors text-white font-medium py-1.5 px-4 rounded text-sm shadow-sm">
+              Nuevo Registro
+            </button>
+          </div>
         </div>
         
         <div className="overflow-x-auto">
@@ -499,7 +530,7 @@ export const Inventario = () => {
               <div className="flex gap-2">
                 <input 
                   type="text" 
-                  placeholder="Código de barras o referencia" 
+                  placeholder="Código de barras (si lo dejas vacío, se crea uno interno)" 
                   className='flex-1 p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' 
                   value={form.codigoBarras} 
                   onChange={(e) => setForm({...form, codigoBarras: e.target.value})} 
@@ -619,6 +650,8 @@ export const Inventario = () => {
           onClose={() => setMostrarCamaraFormulario(false)} 
         />
       )}
+      <ModalImportarProductos abierto={showImportar} onCerrar={() => setShowImportar(false)} onTerminado={() => cargarProductos(sucursalId)} />
+      <ModalEtiquetas abierto={showEtiquetas} productos={productos} onCerrar={() => setShowEtiquetas(false)} />
     </div>
   );
 };

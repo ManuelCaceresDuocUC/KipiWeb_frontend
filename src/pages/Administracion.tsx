@@ -15,6 +15,7 @@ import { GestionEquipo } from '../components/GestionEquipo';
 import { RegistroActividad } from '../components/RegistroActividad';
 import { PanelSuscripcion } from '../components/PanelSuscripcion';
 import { DatosEmpresa } from '../components/DatosEmpresa';
+import { ExportarDatos } from '../components/ExportarDatos';
 // Interfaz para extender los campos opcionales/dinámicos de Cuadratura sin recurrir a 'any'
 interface CuadraturaExtendida {
   id: number | string;
@@ -453,6 +454,8 @@ export const Administracion = () => {
 
           {/* Datos del registro de la empresa (editables salvo el RUT) */}
           <DatosEmpresa />
+
+          <ExportarDatos />
 
           {/* 🧾 FACTURACIÓN ELECTRÓNICA & DTE */}
           <div className="bg-white rounded shadow-sm border border-slate-200 p-6">
