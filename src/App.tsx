@@ -12,6 +12,7 @@ import { Home } from './pages/Home';
 import { Ventas } from './pages/Ventas';
 import { Inventario } from './pages/Inventario';
 import { Movimientos } from './pages/Movimientos';
+import { Compras } from './pages/Compras';
 import { Recetas } from './pages/Recetas';
 import { Administracion } from './pages/Administracion';
 import { DashboardLayout } from './components/DashboardLayout';
@@ -49,6 +50,7 @@ function App() {
             <Route path="/ventas" element={<Ventas />} />
             <Route path="/inventario" element={<Inventario />} />
             <Route path="/movimientos" element={<Movimientos />} />
+            <Route path="/compras" element={<Compras />} />
             <Route path="/recetas" element={<Recetas />} />
             <Route path="/administracion" element={<Administracion />} />
             <Route path="/configuracion-dte" element={<ConfiguracionDTE />} />
