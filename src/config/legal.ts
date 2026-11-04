@@ -14,7 +14,7 @@ export const LEGAL = {
     razonSocial: 'LOS CACERES SPA',
     rut: '78255686-K',
     domicilio: 'ALEMANIA ST 61',
-    ciudadTribunales: '[COMPLETAR: ciudad, p. ej. Santiago]',
+    ciudadTribunales: 'Valparaíso',
   },
   /** Días que se conservan los datos de una cuenta cancelada o suspendida antes de eliminarlos. [CONFIRMAR] */
   diasConservacionTrasCancelacion: 90,
