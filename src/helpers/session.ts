@@ -62,6 +62,20 @@ export const guardarSesion = (usuario: SesionUsuario, token: string): void => {
   localStorage.setItem('empresaId', String(usuario.empresa.id));
 };
 
+/** Refleja en la sesión guardada un cambio de nombre de la empresa (el RUT y el id no cambian). */
+export const actualizarRazonSocialEnSesion = (razonSocial: string): void => {
+  const sesion = getSesion();
+  if (!sesion) return;
+  try {
+    localStorage.setItem(
+      K_SESION,
+      JSON.stringify({ ...sesion, empresa: { ...sesion.empresa, razonSocial } }),
+    );
+  } catch {
+    /* sin almacenamiento: el nombre se actualiza al volver a iniciar sesión */
+  }
+};
+
 export const limpiarSesion = (): void => {
   try {
     localStorage.removeItem(K_TOKEN);

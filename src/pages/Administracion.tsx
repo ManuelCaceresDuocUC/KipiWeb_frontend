@@ -14,6 +14,7 @@ import { EstadoCuentaCliente } from '../components/EstadoCuentaCliente';
 import { GestionEquipo } from '../components/GestionEquipo';
 import { RegistroActividad } from '../components/RegistroActividad';
 import { PanelSuscripcion } from '../components/PanelSuscripcion';
+import { DatosEmpresa } from '../components/DatosEmpresa';
 // Interfaz para extender los campos opcionales/dinámicos de Cuadratura sin recurrir a 'any'
 interface CuadraturaExtendida {
   id: number | string;
@@ -450,6 +451,9 @@ export const Administracion = () => {
           {/* SUSCRIPCIÓN: estado, activación con tarjeta y baja de la cuenta */}
           <PanelSuscripcion />
 
+          {/* Datos del registro de la empresa (editables salvo el RUT) */}
+          <DatosEmpresa />
+
           {/* 🧾 FACTURACIÓN ELECTRÓNICA & DTE */}
           <div className="bg-white rounded shadow-sm border border-slate-200 p-6">
             <div className="flex items-center justify-between mb-1">
@@ -461,7 +465,7 @@ export const Administracion = () => {
               </span>
             </div>
             <p className="text-slate-500 text-xs mb-4 border-b border-slate-100 pb-3">
-              Conecta tu API Key de OpenFactura, LibreDTE u otro proveedor para emitir boletas válidas ante el SII.
+              Conecta tu API Key de OpenFactura o SimpleFactura para emitir boletas válidas ante el SII.
             </p>
             
             <Link to="/configuracion-dte">

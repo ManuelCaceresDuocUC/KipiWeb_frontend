@@ -14,6 +14,7 @@ interface ConfiguracionDTEData {
   emitirBoletaEfectivo: boolean;
   emitirBoletaTarjeta: boolean; // Control para evitar doble IVA con vouchers
   emitirBoletaTransferencia: boolean;
+  emitirBoletaAbono: boolean; // Boleta al pagar deuda de fiado
 }
 
 const CONFIG_INICIAL: ConfiguracionDTEData = {
@@ -26,6 +27,7 @@ const CONFIG_INICIAL: ConfiguracionDTEData = {
   emitirBoletaEfectivo: true,
   emitirBoletaTarjeta: false, // Por defecto en false para resguardar voucher de Transbank/Getnet
   emitirBoletaTransferencia: true,
+  emitirBoletaAbono: false,
 };
 
 export const ConfiguracionDTE = () => {
@@ -65,6 +67,7 @@ export const ConfiguracionDTE = () => {
               emitirBoletaEfectivo: data.emitirBoletaEfectivo ?? true,
               emitirBoletaTarjeta: data.emitirBoletaTarjeta ?? false,
               emitirBoletaTransferencia: data.emitirBoletaTransferencia ?? true,
+              emitirBoletaAbono: data.emitirBoletaAbono ?? false,
               apiKey: '',
               apiSecret: '',
             });
@@ -356,6 +359,25 @@ export const ConfiguracionDTE = () => {
                   <p className="text-xs text-slate-500">Emitir DTE para compras abonadas por transferencia o QR.</p>
                 </div>
               </label>
+
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-md">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.emitirBoletaAbono}
+                    onChange={(e) => setConfig({ ...config, emitirBoletaAbono: e.target.checked })}
+                    className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 mt-0.5"
+                  />
+                  <div>
+                    <span className="font-medium text-slate-800">Cuando un cliente paga su deuda (fiado)</span>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Emite una boleta por el monto abonado (total o parcial), según el medio de pago elegido y las reglas de arriba.
+                      Las ventas a crédito no emiten boleta al vender: se emite al cobrar. <strong>Confirma con tu contador</strong> que este
+                      momento de emisión corresponde a tu caso.
+                    </p>
+                  </div>
+                </label>
+              </div>
 
               <div className="bg-amber-50 border border-amber-200 p-4 rounded-md">
                 <label className="flex items-start gap-3 cursor-pointer">

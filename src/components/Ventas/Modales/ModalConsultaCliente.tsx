@@ -230,6 +230,32 @@ export const ModalConsultaCliente = ({
                   </div>
                 </div>
 
+                {/* Equivalente al "carrito" de una venta: aquí no hay productos, se paga la cuenta */}
+                <div className="rounded border border-slate-200 bg-slate-50 p-3 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-slate-800">Pago de cuenta (abono a deuda)</p>
+                      <p className="text-xs text-slate-500">Cliente: {clienteConsultado.nombre}</p>
+                    </div>
+                    <p className="font-mono font-bold text-slate-900">
+                      ${(Number(montoAbono) || 0).toLocaleString('es-CL')}
+                    </p>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs text-slate-600">
+                    <span>
+                      Deuda después del pago:{' '}
+                      <b>${Math.max(clienteConsultado.deudaActual - (Number(montoAbono) || 0), 0).toLocaleString('es-CL')}</b>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setMontoAbono(String(clienteConsultado.deudaActual))}
+                      className="font-semibold text-blue-700 hover:underline"
+                    >
+                      Pagar toda la deuda
+                    </button>
+                  </div>
+                </div>
+
                 <button type="submit" className="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded text-xs uppercase tracking-wider transition-colors">
                   Procesar Abono y Entregar Comprobante
                 </button>

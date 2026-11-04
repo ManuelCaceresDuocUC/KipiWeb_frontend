@@ -102,13 +102,24 @@ export const useClientesPos = (
       });
 
     if (response.ok) {
-      // Comprobante de abono (80 mm) directo a la impresora; si falla la lectura, el abono igual quedó registrado
+      // Boleta (si la empresa la emite por pagos de deuda) o, si no, el comprobante de abono (80 mm).
+      // Si falla la lectura, el abono igual quedó registrado
+      let aviso = '';
+      let conBoleta = false;
       try {
         const cuerpo = await response.json();
-        if (cuerpo?.comprobantePdf) void imprimirDocumentos([cuerpo.comprobantePdf], 'Abono');
+        conBoleta = Boolean(cuerpo?.boletaPdf);
+        const documentos = conBoleta ? [cuerpo.boletaPdf, cuerpo.comprobantePdf] : [cuerpo?.comprobantePdf];
+        if (documentos.some(Boolean)) void imprimirDocumentos(documentos, 'Abono');
+        aviso = cuerpo?.dteAviso || '';
+        if (conBoleta && cuerpo?.dteFolio) aviso = `Boleta N° ${cuerpo.dteFolio} emitida.`;
       } catch { /* sin comprobante */ }
-      Swal.fire('Éxito', 'Abono registrado correctamente.', 'success');
-      
+      Swal.fire({
+        icon: aviso && !conBoleta ? 'warning' : 'success',
+        title: 'Abono registrado',
+        text: aviso || 'El abono quedó registrado correctamente.',
+      });
+
       // Resetear la vista del modal
       setClienteConsultado(null);
       setTerminoBusquedaCliente('');

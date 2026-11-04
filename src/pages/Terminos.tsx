@@ -94,6 +94,16 @@ const SECCIONES: SeccionLegal[] = [
       'Las boletas de ventas guardadas sin conexión se emiten cuando la venta llega a KIPI; la fecha del documento será la de su emisión y no la de la venta. El comprobante interno que el equipo imprime sin conexión no tiene valor tributario.',
       'Al anular una venta que tiene boleta, KIPI solicita al proveedor la emisión de la nota de crédito correspondiente. Si esa nota no puede emitirse, el Cliente debe regularizarla directamente con su proveedor o ante el SII.',
       'El Cliente debe mantener sus credenciales de facturación en reserva y revocarlas o cambiarlas ante cualquier sospecha de uso indebido. KIPI las almacena cifradas y las usa solo para emitir y consultar los documentos del Cliente.',
+      'Las ventas a crédito (fiado) no emiten boleta en el momento de la venta. Si el Cliente activa la opción correspondiente en su configuración de facturación, KIPI solicita la boleta cuando un cliente paga total o parcialmente su deuda, por el monto pagado y según el medio de pago. La oportunidad en que debe emitirse el documento tributario en una venta a crédito depende de la situación tributaria del Cliente y es de su exclusiva responsabilidad; le recomendamos confirmarla con su contador.',
+    ],
+  },
+  {
+    titulo: 'Habilitación asistida (servicio opcional)',
+    parrafos: [
+      'Algunos Clientes necesitan ayuda para contratar o activar su proveedor de facturación electrónica. El Prestador puede, si el Cliente lo solicita expresamente por escrito (por ejemplo, por correo o WhatsApp), ayudarlo a hacerlo. Es un apoyo opcional y gratuito, no obligatorio ni parte de la suscripción, y el Cliente puede preferir hacerlo por sí mismo siguiendo la guía de KIPI.',
+      'Si para ello el Cliente comparte con el Prestador credenciales de su cuenta en el proveedor (por ejemplo, usuario y contraseña) o su API Key, declara que es titular de esa cuenta o que está facultado para autorizar su uso, y autoriza al Prestador a usarlas únicamente para realizar la habilitación solicitada: obtener o configurar la API Key, ingresarla en KIPI y comprobar que la conexión funciona.',
+      'El Prestador se compromete a no usar esas credenciales para ningún otro fin, a no emitir ni anular documentos con ellas, a no compartirlas con terceros, a no conservarlas una vez terminada la tarea y a eliminar de sus mensajes y registros las que no necesite. Al terminar, el Cliente debe cambiar su contraseña y, si lo estima conveniente, generar una API Key nueva. Cuando sea posible, el Cliente puede preferir realizar él mismo los pasos que requieran su contraseña, compartiendo solo la API Key.',
+      'Compartir credenciales es una decisión del Cliente y se hace bajo su responsabilidad: se recomienda enviarlas solo por el canal de soporte indicado en el sitio, y no por redes abiertas o medios públicos. Las credenciales de la cuenta del proveedor siguen siendo del Cliente, quien conserva la responsabilidad frente al proveedor y el SII por los documentos emitidos y por la veracidad de los datos informados. El Prestador responde por el uso indebido que haga de las credenciales fuera de lo autorizado aquí.',
     ],
   },
   {
