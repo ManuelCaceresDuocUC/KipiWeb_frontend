@@ -197,8 +197,8 @@ export const useVentas = (
       return;
     }
 
-    // Sin conexión no hay cómo enviar correo: si pidió correo o ticket, se imprime el comprobante local
-    if (comprobante !== 'NINGUNO') void imprimirTicketLocal({
+    // Sin conexión no hay cómo enviar correo: se imprime el comprobante local si el cliente lo quiere, o si el local guarda copia
+    if (comprobante === 'IMPRIMIR' || copiasTicket() === 2) void imprimirTicketLocal({
       numeroLocal: venta.numeroLocal,
       fecha: ahora,
       empresa: sesion.empresa.razonSocial,
@@ -253,6 +253,8 @@ export const useVentas = (
       clienteId: clienteId ? Number(clienteId) : null,
       idempotencyKey: claveRef.current,
       copiasTicket: copiasTicket(),
+      // Cliente sin papel (correo o nada) pero el local tiene 2 copias activadas: se imprime solo la del local
+      soloCopiaLocal: comprobante !== 'IMPRIMIR' && copiasTicket() === 2,
       items: carrito.map(p => ({ productoId: p.id, cantidad: p.cantidad })),
       pagos: pagos.map(l => ({
         metodo: l.metodo,
@@ -262,6 +264,7 @@ export const useVentas = (
       })),
     };
     const comprobanteElegido = comprobante;
+    const soloLocalElegido = comprobante !== 'IMPRIMIR' && copiasTicket() === 2;
     const correoElegido = correoComprobante.trim();
 
     const conCredito = pagos.some(l => l.metodo === 'CREDITO');
@@ -319,7 +322,7 @@ export const useVentas = (
       // Ticket 80 mm (y vale de crédito si corresponde): se imprime desde el navegador sin abrir el PDF.
       // No se espera: la caja queda libre mientras sale el ticket.
       // El vale de crédito para firmar siempre se imprime; el resto según lo que pidió el cliente
-      if (!duplicada && (hayCredito || comprobanteElegido === 'IMPRIMIR')) {
+      if (!duplicada && (hayCredito || comprobanteElegido === 'IMPRIMIR' || soloLocalElegido)) {
         // Si hay vale, el servidor entrega ticket + vale ya unidos: un solo trabajo de impresión
         void imprimirDocumentos(
           respuestaBackend?.impresionPdf ? [respuestaBackend.impresionPdf] : [respuestaBackend?.boletaPdf, respuestaBackend?.valePdf],

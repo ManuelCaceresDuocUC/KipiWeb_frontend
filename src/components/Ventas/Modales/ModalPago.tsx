@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../../../helpers/apiFetch';
+import { copiasTicket } from '../../../helpers/impresion';
 import type { ClienteInfo, ComprobanteVenta, LineaPago, MetodoPago } from '../../../types/ventas.types';
 
 const formatearRutBusqueda = (termino: string) => {
@@ -57,6 +58,12 @@ export const ModalPago = ({
   const [sugerencias, setSugerencias] = useState<ClienteInfo[]>([]);
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteInfo | null>(null);
+  // Por defecto se paga con UN solo método; combinar dos es una opción aparte
+  const [mixto, setMixto] = useState(false);
+
+  useEffect(() => {
+    if (!show) setMixto(false);
+  }, [show]);
 
   const resetearEstadoCliente = () => {
     setTerminoBusqueda('');
@@ -126,8 +133,27 @@ export const ModalPago = ({
   };
 
   // ---- manejo de las líneas de pago ----
+  // Pago con un solo método: reemplaza lo anterior por el total completo
+  const elegirUnico = (metodo: MetodoPago) => {
+    setPagos([{ metodo, monto: total }]);
+    if (metodo !== 'EFECTIVO') setPagaCon(0);
+    if (metodo !== 'CREDITO') {
+      setClienteId(null);
+      resetearEstadoCliente();
+    }
+  };
+
+  const activarMixto = () => {
+    setMixto(true);
+  };
+
+  const volverAUnico = () => {
+    setMixto(false);
+    elegirUnico(pagos[0]?.metodo ?? 'EFECTIVO');
+  };
+
   const agregarMetodo = (metodo: MetodoPago) => {
-    if (lineaDe(metodo)) return;
+    if (lineaDe(metodo) || pagos.length >= 2) return; // máximo dos métodos
     setPagos([...pagos, { metodo, monto: Math.max(restante, 0) }]);
   };
 
@@ -143,12 +169,13 @@ export const ModalPago = ({
   };
 
   const cambiarLinea = (metodo: MetodoPago, cambios: Partial<LineaPago>) => {
+    // Con dos métodos, al escribir un monto el otro se ajusta solo para sumar el total
+    if (mixto && pagos.length === 2 && cambios.monto !== undefined) {
+      const monto = Math.min(cambios.monto, total);
+      setPagos(pagos.map(l => (l.metodo === metodo ? { ...l, ...cambios, monto } : { ...l, monto: total - monto })));
+      return;
+    }
     setPagos(pagos.map(l => (l.metodo === metodo ? { ...l, ...cambios } : l)));
-  };
-
-  const completarConRestante = (metodo: MetodoPago) => {
-    const l = lineaDe(metodo);
-    if (l) cambiarLinea(metodo, { monto: Math.max(0, l.monto + restante) });
   };
 
   const metodosDisponibles: MetodoPago[] = ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA', ...(permiteFiado ? ['CREDITO' as MetodoPago] : [])];
@@ -179,13 +206,20 @@ export const ModalPago = ({
           <span className="text-3xl font-mono font-bold text-slate-900">${total.toLocaleString('es-CL')}</span>
         </div>
 
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">Formas de pago (puedes combinar)</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">{mixto ? 'Formas de pago (elige las dos que usará)' : 'Forma de pago'}</p>
         <div className={`grid gap-2 mb-4 ${metodosDisponibles.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
           {metodosDisponibles.map(m => (
-            <button key={m} type="button" onClick={() => (lineaDe(m) ? quitarMetodo(m) : agregarMetodo(m))} className={claseMetodo(Boolean(lineaDe(m)))}>
+            <button key={m} type="button" onClick={() => (mixto ? (lineaDe(m) ? quitarMetodo(m) : agregarMetodo(m)) : elegirUnico(m))} className={claseMetodo(Boolean(lineaDe(m)))}>
               {ETIQUETA[m]}
             </button>
           ))}
+        </div>
+        <div className="mb-4 -mt-2 text-right">
+          {mixto ? (
+            <button type="button" onClick={volverAUnico} className="text-xs font-semibold text-slate-600 underline">Volver a un solo método</button>
+          ) : (
+            <button type="button" onClick={activarMixto} className="text-xs font-semibold text-slate-600 underline">Dividir el pago en dos métodos</button>
+          )}
         </div>
 
         <div className="space-y-3 mb-4">
@@ -197,12 +231,10 @@ export const ModalPago = ({
                   type="number" min="1" step="1"
                   className="flex-1 p-2 rounded border border-slate-300 focus:border-slate-500 outline-none font-mono"
                   value={l.monto || ''}
+                  readOnly={!mixto}
                   onChange={(e) => cambiarLinea(l.metodo, { monto: Math.max(0, Math.round(Number(e.target.value))) })}
                 />
-                {pagos.length > 1 && (
-                  <button type="button" onClick={() => completarConRestante(l.metodo)} className="text-[11px] font-semibold text-slate-700 underline whitespace-nowrap" title="Ajustar este monto para cubrir lo que falta">Completar</button>
-                )}
-                {pagos.length > 1 && (
+                {mixto && pagos.length > 1 && (
                   <button type="button" onClick={() => quitarMetodo(l.metodo)} className="text-slate-400 hover:text-red-600 font-bold px-1" title="Quitar">✕</button>
                 )}
               </div>
@@ -337,6 +369,7 @@ export const ModalPago = ({
         </div>
         {comprobante === 'CORREO' && (
           <div className="mb-3">
+            {copiasTicket() === 2 && <p className="mb-1.5 text-xs text-slate-500">Se imprime solo la copia del local; al cliente le llega el correo.</p>}
             <input
               type="email" inputMode="email" autoComplete="off" placeholder="correo@cliente.cl"
               className="w-full p-2 rounded border border-slate-300 focus:border-slate-500 outline-none text-sm"
@@ -346,7 +379,7 @@ export const ModalPago = ({
           </div>
         )}
         {comprobante === 'NINGUNO' && (
-          <p className="mb-3 text-xs text-slate-500">La venta queda registrada y la boleta (si corresponde) se emite igual; solo no se imprime nada.</p>
+          <p className="mb-3 text-xs text-slate-500">La venta queda registrada y la boleta (si corresponde) se emite igual; el cliente no recibe comprobante.{copiasTicket() === 2 ? ' Se imprime solo la copia del local.' : ''}</p>
         )}
         {hayCredito && comprobante !== 'IMPRIMIR' && (
           <p className="mb-3 text-xs text-amber-700">El vale de crédito para firmar se imprime siempre.</p>
