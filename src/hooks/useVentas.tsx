@@ -271,7 +271,11 @@ export const useVentas = (
       // Ticket 80 mm (y vale de crédito si corresponde): se imprime desde el navegador sin abrir el PDF.
       // No se espera: la caja queda libre mientras sale el ticket.
       if (!duplicada) {
-        void imprimirDocumentos([respuestaBackend?.boletaPdf, respuestaBackend?.valePdf], `Venta_${respuestaBackend?.ventaId ?? ''}`);
+        // Si hay vale, el servidor entrega ticket + vale ya unidos: un solo trabajo de impresión
+        void imprimirDocumentos(
+          respuestaBackend?.impresionPdf ? [respuestaBackend.impresionPdf] : [respuestaBackend?.boletaPdf, respuestaBackend?.valePdf],
+          `Venta_${respuestaBackend?.ventaId ?? ''}`,
+        );
       }
 
       // Boleta electrónica que no salió (la venta SÍ quedó registrada y se imprimió el comprobante interno)
@@ -290,11 +294,17 @@ export const useVentas = (
         // Transferencia: se ofrece adjuntar el comprobante recién recibido (opcional; se puede hacer luego en Movimientos)
         void adjuntarComprobante(respuestaBackend.ventaId);
       } else {
+        // Fiado sin vale generado: la venta quedó, pero no hay papel para firmar; se avisa para no dejarlo pasar
+        const faltaVale = !duplicada && hayCredito && !respuestaBackend?.valePdf;
         void Swal.fire({
           title: duplicada ? 'Venta ya registrada' : (hayCredito ? '¡Venta a Crédito Registrada!' : '¡Venta Completada!'),
-          text: duplicada ? respuestaBackend.message : (hayCredito && respuestaBackend?.correoFiadoEnviado ? 'Se envió el comprobante al correo del cliente.' : ''),
-          icon: duplicada ? 'info' : 'success',
-          timer: duplicada ? undefined : (hayCredito ? 4000 : 2500)
+          text: duplicada
+            ? respuestaBackend.message
+            : faltaVale
+              ? 'No se pudo generar el vale para firmar. Reimprímelo desde Movimientos antes de despachar.'
+              : (hayCredito && respuestaBackend?.correoFiadoEnviado ? 'Se envió el comprobante al correo del cliente.' : ''),
+          icon: duplicada ? 'info' : (faltaVale ? 'warning' : 'success'),
+          timer: duplicada || faltaVale ? undefined : (hayCredito ? 4000 : 2500)
         });
       }
 
