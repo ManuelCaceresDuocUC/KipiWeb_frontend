@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { apiFetch, ErrorConexion, esErrorDeConexion, leerError } from "../helpers/apiFetch";
-import type { LineaPago } from "../types/ventas.types";
+import type { ComprobanteVenta, LineaPago } from "../types/ventas.types";
+import { pedirCantidadGranel, subtotalLinea } from "../helpers/granel";
 import { copiasTicket, imprimirDocumentos, imprimirTicketLocal } from "../helpers/impresion";
 import { agregarVentaPendiente, siguienteNumeroLocal, type VentaPendiente } from "../helpers/colaVentas";
 import { sinConexionSegura } from "../helpers/conexion";
@@ -15,12 +16,35 @@ export interface Producto {
   stock: number;
   codigoBarras?: string;
   esInsumo?: boolean;
+  unidadMedida?: string;
+  pesable?: boolean;
 }
+
+const correoValido = (c: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c.trim());
 
 export interface ItemCarrito extends Producto {
   cantidad: number;
   subtotal: number;
 }
+
+/** Envía el comprobante de una venta ya registrada. Nunca interrumpe la caja: el resultado sale como aviso breve. */
+const enviarComprobanteCorreo = async (ventaId: number, email: string) => {
+  const aviso = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 4000, timerProgressBar: true });
+  try {
+    const res = await apiFetch(`${import.meta.env.VITE_API_URL}/ventas/${ventaId}/ticket/enviar`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) throw new Error(await leerError(res, 'No se pudo enviar el correo'));
+    void aviso.fire({ icon: 'success', title: `Comprobante enviado a ${email}` });
+  } catch (e) {
+    void Swal.fire({
+      icon: 'warning',
+      title: `Venta N° ${ventaId} registrada`,
+      text: `No se pudo enviar el comprobante a ${email}: ${e instanceof Error ? e.message : 'error de envío'}. Puedes reenviarlo desde Movimientos.`,
+    });
+  }
+};
 
 const nuevaClave = () =>
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -41,6 +65,9 @@ export const useVentas = (
   const [busqueda, setBusqueda] = useState('');
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
   const [permiteFiado, setPermiteFiado] = useState(false);
+  // Qué recibe el cliente: ticket impreso, correo (se pide la dirección) o nada
+  const [comprobante, setComprobante] = useState<ComprobanteVenta>('IMPRIMIR');
+  const [correoComprobante, setCorreoComprobante] = useState('');
 
   // Clave del intento de cobro: si la respuesta se pierde y el cajero reintenta, el servidor
   // devuelve la venta ya registrada en vez de cobrarla dos veces. Cambia si cambia el carrito.
@@ -64,18 +91,28 @@ export const useVentas = (
   }, []);
 
   // AGREGAR AL CARRITO
-  const agregarAlCarrito = (producto: Producto) => {
+  const sumarAlCarrito = (producto: Producto, cantidad: number) => {
     setCarrito(prev => {
       const existe = prev.find(p => p.id === producto.id);
       if (existe) {
+        const nueva = Math.round((existe.cantidad + cantidad) * 1000) / 1000;
         return prev.map(p =>
-          p.id === producto.id
-            ? { ...p, cantidad: p.cantidad + 1, subtotal: (p.cantidad + 1) * p.precio }
-            : p
+          p.id === producto.id ? { ...p, cantidad: nueva, subtotal: subtotalLinea(p.precio, nueva) } : p
         );
       }
-      return [...prev, { ...producto, cantidad: 1, subtotal: producto.precio }];
+      return [...prev, { ...producto, cantidad, subtotal: subtotalLinea(producto.precio, cantidad) }];
     });
+  };
+
+  // Producto a granel: se pide el peso o la cantidad; el resto se agrega de a una unidad
+  const agregarAlCarrito = (producto: Producto) => {
+    if (producto.pesable) {
+      void pedirCantidadGranel(producto.descripcion, producto.unidadMedida ?? 'UN', producto.precio).then(c => {
+        if (c) sumarAlCarrito(producto, c);
+      });
+      return;
+    }
+    sumarAlCarrito(producto, 1);
   };
 
   // ELIMINAR DEL CARRITO
@@ -83,16 +120,23 @@ export const useVentas = (
     setCarrito(prev => prev.filter(p => p.id !== id));
   };
 
-  // ACTUALIZAR CANTIDAD
+  // ACTUALIZAR CANTIDAD (unidades enteras; los productos a granel usan editarCantidadGranel)
   const actualizarCantidad = (id: number, nuevaCantidad: number) => {
     setCarrito(prev => prev.map(p => {
-      if (p.id === id) {
-        if (nuevaCantidad >= 1) {
-          return { ...p, cantidad: nuevaCantidad, subtotal: nuevaCantidad * p.precio };
-        }
+      if (p.id === id && !p.pesable && nuevaCantidad >= 1) {
+        return { ...p, cantidad: nuevaCantidad, subtotal: subtotalLinea(p.precio, nuevaCantidad) };
       }
       return p;
     }));
+  };
+
+  // Cambia el peso o la cantidad de un producto a granel que ya está en el carrito
+  const editarCantidadGranel = (id: number) => {
+    const item = carrito.find(p => p.id === id);
+    if (!item) return;
+    void pedirCantidadGranel(item.descripcion, item.unidadMedida ?? 'UN', item.precio, item.cantidad).then(c => {
+      if (c) setCarrito(prev => prev.map(p => (p.id === id ? { ...p, cantidad: c, subtotal: subtotalLinea(p.precio, c) } : p)));
+    });
   };
 
   // TOTAL DE LA VENTA Y VACIADO
@@ -107,6 +151,8 @@ export const useVentas = (
     setPagos([]);
     setClienteId(null);
     setBusqueda("");
+    setComprobante('IMPRIMIR');
+    setCorreoComprobante('');
   };
 
   // Guarda la venta en el equipo para enviarla cuando vuelva la conexión (nunca fiado)
@@ -136,7 +182,6 @@ export const useVentas = (
         pagos: pagos.map(l => ({
           metodo: l.metodo,
           monto: l.monto,
-          proveedorTarjeta: l.metodo === 'TARJETA' ? l.proveedorTarjeta : null,
           referencia: l.referencia?.trim() || null,
           confirmado: l.metodo === 'TRANSFERENCIA' ? true : undefined,
         })),
@@ -152,7 +197,8 @@ export const useVentas = (
       return;
     }
 
-    void imprimirTicketLocal({
+    // Sin conexión no hay cómo enviar correo: si pidió correo o ticket, se imprime el comprobante local
+    if (comprobante !== 'NINGUNO') void imprimirTicketLocal({
       numeroLocal: venta.numeroLocal,
       fecha: ahora,
       empresa: sesion.empresa.razonSocial,
@@ -185,8 +231,8 @@ export const useVentas = (
       return;
     }
     const tarjeta = pagos.find(l => l.metodo === 'TARJETA');
-    if (tarjeta && !tarjeta.proveedorTarjeta) {
-      Swal.fire('Atención', 'Selecciona la terminal (Getnet, Mercado Pago o Transbank)', 'warning');
+    if (comprobante === 'CORREO' && !correoValido(correoComprobante)) {
+      Swal.fire('Atención', 'Escribe un correo válido para enviar el comprobante, o elige otra opción.', 'warning');
       return;
     }
     const transferencia = pagos.find(l => l.metodo === 'TRANSFERENCIA');
@@ -211,20 +257,21 @@ export const useVentas = (
       pagos: pagos.map(l => ({
         metodo: l.metodo,
         monto: l.monto,
-        proveedorTarjeta: l.metodo === 'TARJETA' ? l.proveedorTarjeta : null,
         referencia: l.referencia?.trim() || null,
         confirmado: l.metodo === 'TRANSFERENCIA' ? true : undefined,
       })),
     };
+    const comprobanteElegido = comprobante;
+    const correoElegido = correoComprobante.trim();
 
     const conCredito = pagos.some(l => l.metodo === 'CREDITO');
-    const marcaTarjeta = tarjeta ? `${claveRef.current}|${tarjeta.proveedorTarjeta}|${tarjeta.monto}` : null;
+    const marcaTarjeta = tarjeta ? `${claveRef.current}|${tarjeta.monto}` : null;
 
     try {
       if (tarjeta && tarjetaAprobadaRef.current !== marcaTarjeta) {
         // Espera de confirmación manual del cobro en la máquina física
         const confirmacionPOS = await Swal.fire({
-          title: `Cobro en Máquina (${tarjeta.proveedorTarjeta})`,
+          title: 'Cobro con tarjeta',
           html: `
             <p style="font-size: 1.2rem; font-weight: bold; margin-bottom: 10px;">
               Monto a cobrar: $${tarjeta.monto.toLocaleString('es-CL')}
@@ -271,12 +318,18 @@ export const useVentas = (
 
       // Ticket 80 mm (y vale de crédito si corresponde): se imprime desde el navegador sin abrir el PDF.
       // No se espera: la caja queda libre mientras sale el ticket.
-      if (!duplicada) {
+      // El vale de crédito para firmar siempre se imprime; el resto según lo que pidió el cliente
+      if (!duplicada && (hayCredito || comprobanteElegido === 'IMPRIMIR')) {
         // Si hay vale, el servidor entrega ticket + vale ya unidos: un solo trabajo de impresión
         void imprimirDocumentos(
           respuestaBackend?.impresionPdf ? [respuestaBackend.impresionPdf] : [respuestaBackend?.boletaPdf, respuestaBackend?.valePdf],
           `Venta_${respuestaBackend?.ventaId ?? ''}`,
         );
+      }
+
+      // Comprobante por correo: la venta ya está registrada; si el envío falla, se avisa y se puede reenviar desde Movimientos
+      if (!duplicada && comprobanteElegido === 'CORREO' && respuestaBackend?.ventaId) {
+        void enviarComprobanteCorreo(respuestaBackend.ventaId, correoElegido);
       }
 
       // Boleta electrónica que no salió (la venta SÍ quedó registrada y se imprimió el comprobante interno)
@@ -362,6 +415,11 @@ export const useVentas = (
     pagos,
     setPagos,
     permiteFiado,
+    editarCantidadGranel,
+    comprobante,
+    setComprobante,
+    correoComprobante,
+    setCorreoComprobante,
     clienteId,
     setClienteId
   };

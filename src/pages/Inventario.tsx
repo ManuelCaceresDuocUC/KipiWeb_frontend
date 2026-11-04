@@ -99,6 +99,7 @@ export const Inventario = () => {
     stockCritico: '',
     esInsumo: true,
     unidadMedida: 'UN',
+    pesable: false,
     categoriaId: '' as number | '' 
   });
 
@@ -204,6 +205,7 @@ export const Inventario = () => {
         stockCritico: '',
         esInsumo: false,
         unidadMedida: 'UN',
+        pesable: false,
         categoriaId: ''
       });
 
@@ -275,6 +277,7 @@ export const Inventario = () => {
       stockCritico: producto.stockCritico.toString(),
       esInsumo: producto.esInsumo ?? true,
       unidadMedida: producto.unidadMedida,
+      pesable: Boolean(producto.pesable),
       categoriaId: producto.categoria?.id || ''
     });
     
@@ -295,7 +298,7 @@ export const Inventario = () => {
     setListaIngredientesSeleccionados([]);
     setForm({ 
       codigoBarras: '', descripcion: '', precio: '', stock: '', costo: '',
-      stockCritico: '', esInsumo: true, unidadMedida: 'UN', categoriaId: ''
+      stockCritico: '', esInsumo: true, unidadMedida: 'UN', pesable: false, categoriaId: ''
     });
   };
 
@@ -341,6 +344,7 @@ export const Inventario = () => {
       stockCritico: Number(form.stockCritico),
       esInsumo: form.esInsumo,
       unidadMedida: form.unidadMedida,
+      pesable: !form.esInsumo && form.pesable,
       codigoBarras: codigoFinal,
       categoria: categoriaSeleccionada ? { id: categoriaSeleccionada.id, nombre: categoriaSeleccionada.nombre } : undefined
     };
@@ -532,11 +536,25 @@ export const Inventario = () => {
                   <select className='bg-slate-100 px-2 text-xs font-semibold outline-none cursor-pointer border-l border-slate-300 text-slate-700' value={form.unidadMedida || ""} onChange={(e) => setForm({ ...form, unidadMedida: e.target.value })}>
                     <option value="UN">UN</option>
                     <option value="KG">KG</option>
+                    <option value="GR">GR</option>
                     <option value="LT">LT</option>
                   </select>
                 </div>
                 <input type="number" placeholder="Precio ($)" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.precio} onChange={(e)=> setForm({...form, precio: e.target.value})} />
               </div>
+
+              {!form.esInsumo && (
+                <label className="flex items-start gap-2 p-3 bg-slate-50 rounded border border-slate-200 text-sm text-slate-700 cursor-pointer">
+                  <input type="checkbox" className="mt-0.5" checked={form.pesable}
+                    onChange={(e) => setForm({ ...form, pesable: e.target.checked })} />
+                  <span>
+                    <b>Se vende por peso o medida (granel)</b>
+                    <span className="block text-xs text-slate-500 mt-0.5">
+                      En caja se pedirá la cantidad con decimales (ej: 0,350 kg). El precio es por {form.unidadMedida === 'UN' ? 'unidad de medida (elige KG, GR o LT)' : form.unidadMedida}.
+                    </span>
+                  </span>
+                </label>
+              )}
 
               <input type="number" step="0.01" placeholder="Costo unitario ($, opcional)" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.costo} onChange={(e)=> setForm({...form, costo: e.target.value})} />
 

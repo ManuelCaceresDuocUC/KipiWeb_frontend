@@ -1,12 +1,15 @@
-import type { ItemCarrito } from '../../../types/ventas.types'; // Ajusta la ruta a tus types
+import type { ItemCarrito } from '../../../types/ventas.types';
+import { formatoCantidad } from '../../../helpers/granel';
 
 interface Props {
   carrito: ItemCarrito[];
   actualizarCantidad: (id: number, cant: number) => void;
   eliminarDelCarrito: (id: number) => void;
+  /** Productos a granel: abre el ingreso de peso/cantidad. */
+  editarCantidadGranel: (id: number) => void;
 }
 
-export const DetalleCarrito = ({ carrito, actualizarCantidad, eliminarDelCarrito }: Props) => {
+export const DetalleCarrito = ({ carrito, actualizarCantidad, eliminarDelCarrito, editarCantidadGranel }: Props) => {
   return (
     <div className="lg:col-span-2 bg-white rounded shadow-sm border border-slate-200 p-6 min-h-112.5 flex flex-col justify-between">
       <div>
@@ -21,15 +24,27 @@ export const DetalleCarrito = ({ carrito, actualizarCantidad, eliminarDelCarrito
               <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 rounded border border-slate-200">
                 <div className="flex-1">
                   <h3 className="font-medium text-slate-900">{item.descripcion}</h3>
-                  <p className="text-xs text-slate-500 font-mono">${item.precio} unitario</p>
+                  <p className="text-xs text-slate-500 font-mono">
+                    ${item.precio.toLocaleString('es-CL')} {item.pesable && item.unidadMedida && item.unidadMedida !== 'UN' ? `por ${item.unidadMedida.toLowerCase()}` : 'unitario'}
+                  </p>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center bg-white border border-slate-300 rounded overflow-hidden shadow-sm text-xs">
-                    <button onClick={() => actualizarCantidad(item.id, item.cantidad - 1)} className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 font-bold transition-colors">-</button>
-                    <span className="w-8 text-center font-mono font-semibold">{item.cantidad}</span>
-                    <button onClick={() => actualizarCantidad(item.id, item.cantidad + 1)} className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 font-bold transition-colors">+</button>
-                  </div>
-                  <span className="font-mono font-semibold w-20 text-right text-slate-900">${item.subtotal}</span>
+                  {item.pesable ? (
+                    <button
+                      onClick={() => editarCantidadGranel(item.id)}
+                      title="Cambiar el peso o la cantidad"
+                      className="bg-white border border-slate-300 rounded px-3 py-1 text-xs font-mono font-semibold hover:bg-slate-100 shadow-sm"
+                    >
+                      {formatoCantidad(item.cantidad)} {item.unidadMedida && item.unidadMedida !== 'UN' ? item.unidadMedida.toLowerCase() : ''} ✎
+                    </button>
+                  ) : (
+                    <div className="flex items-center bg-white border border-slate-300 rounded overflow-hidden shadow-sm text-xs">
+                      <button onClick={() => actualizarCantidad(item.id, item.cantidad - 1)} className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 font-bold transition-colors">-</button>
+                      <span className="w-8 text-center font-mono font-semibold">{item.cantidad}</span>
+                      <button onClick={() => actualizarCantidad(item.id, item.cantidad + 1)} className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 font-bold transition-colors">+</button>
+                    </div>
+                  )}
+                  <span className="font-mono font-semibold w-20 text-right text-slate-900">${item.subtotal.toLocaleString('es-CL')}</span>
                   <button onClick={() => eliminarDelCarrito(item.id)} className="text-slate-400 hover:text-red-600 font-mono font-bold px-2 py-1 rounded transition-colors text-xs">X</button>
                 </div>
               </div>

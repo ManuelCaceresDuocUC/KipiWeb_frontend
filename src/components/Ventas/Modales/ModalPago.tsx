@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../../../helpers/apiFetch';
-import type { ClienteInfo, LineaPago, MetodoPago, ProveedorTarjeta } from '../../../types/ventas.types';
+import type { ClienteInfo, ComprobanteVenta, LineaPago, MetodoPago } from '../../../types/ventas.types';
 
 const formatearRutBusqueda = (termino: string) => {
   if (/[^0-9kK.\-\s]/i.test(termino)) {
@@ -34,6 +34,10 @@ interface Props {
   setPagaCon: (monto: number) => void;
   onAbrirNuevoCliente: () => void;
   confirmarVentaFinal: () => void;
+  comprobante: ComprobanteVenta;
+  setComprobante: (c: ComprobanteVenta) => void;
+  correoComprobante: string;
+  setCorreoComprobante: (c: string) => void;
 }
 
 const ETIQUETA: Record<MetodoPago, string> = {
@@ -43,15 +47,10 @@ const ETIQUETA: Record<MetodoPago, string> = {
   CREDITO: 'Crédito / Vale',
 };
 
-const TERMINALES: { id: ProveedorTarjeta; nombre: string }[] = [
-  { id: 'GETNET', nombre: 'Getnet' },
-  { id: 'MERCADOPAGO', nombre: 'Mercado Pago' },
-  { id: 'TRANSBANK', nombre: 'Transbank' },
-];
-
 export const ModalPago = ({
   show, onClose, empresaId, totalBruto, pagos, setPagos, permiteFiado,
-  clienteId, setClienteId, pagaCon, setPagaCon, onAbrirNuevoCliente, confirmarVentaFinal
+  clienteId, setClienteId, pagaCon, setPagaCon, onAbrirNuevoCliente, confirmarVentaFinal,
+  comprobante, setComprobante, correoComprobante, setCorreoComprobante
 }: Props) => {
 
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
@@ -156,7 +155,7 @@ export const ModalPago = ({
 
   const efectivoRecibidoInsuficiente = Boolean(lineaEfectivo) && pagaCon > 0 && pagaCon < (lineaEfectivo?.monto ?? 0);
   const creditoInvalido = Boolean(lineaCredito) && (!clienteId || !clienteSeleccionado || (lineaCredito?.monto ?? 0) > cupo);
-  const tarjetaInvalida = Boolean(lineaDe('TARJETA')) && !lineaDe('TARJETA')?.proveedorTarjeta;
+  const correoInvalido = comprobante === 'CORREO' && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correoComprobante.trim());
   const transferenciaInvalida = Boolean(lineaDe('TRANSFERENCIA')) && !lineaDe('TRANSFERENCIA')?.confirmado;
   const puedeConfirmar =
     pagos.length > 0 &&
@@ -164,7 +163,7 @@ export const ModalPago = ({
     pagos.every(l => l.monto > 0) &&
     !efectivoRecibidoInsuficiente &&
     !creditoInvalido &&
-    !tarjetaInvalida &&
+    !correoInvalido &&
     !transferenciaInvalida;
 
   const claseMetodo = (activo: boolean) =>
@@ -225,20 +224,6 @@ export const ModalPago = ({
                   {efectivoRecibidoInsuficiente && (
                     <p className="mt-1 text-xs text-red-600">El monto recibido es menor al efectivo a cobrar.</p>
                   )}
-                </div>
-              )}
-
-              {l.metodo === 'TARJETA' && (
-                <div className="mt-2">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Terminal de pago</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {TERMINALES.map(t => (
-                      <button key={t.id} type="button" onClick={() => cambiarLinea('TARJETA', { proveedorTarjeta: t.id })}
-                        className={`py-1.5 rounded border text-xs font-medium transition-all ${l.proveedorTarjeta === t.id ? 'bg-slate-100 border-slate-500 text-slate-900 font-semibold' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
-                        {t.nombre}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               )}
 
@@ -336,6 +321,36 @@ export const ModalPago = ({
             </div>
           ))}
         </div>
+
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">Comprobante para el cliente</p>
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          {([['IMPRIMIR', 'Imprimir'], ['CORREO', 'Por correo'], ['NINGUNO', 'Sin comprobante']] as [ComprobanteVenta, string][]).map(([valor, texto]) => (
+            <button key={valor} type="button"
+              onClick={() => {
+                setComprobante(valor);
+                if (valor === 'CORREO' && !correoComprobante && clienteSeleccionado?.email) setCorreoComprobante(clienteSeleccionado.email);
+              }}
+              className={claseMetodo(comprobante === valor)}>
+              {texto}
+            </button>
+          ))}
+        </div>
+        {comprobante === 'CORREO' && (
+          <div className="mb-3">
+            <input
+              type="email" inputMode="email" autoComplete="off" placeholder="correo@cliente.cl"
+              className="w-full p-2 rounded border border-slate-300 focus:border-slate-500 outline-none text-sm"
+              value={correoComprobante} onChange={(e) => setCorreoComprobante(e.target.value)}
+            />
+            {correoInvalido && correoComprobante.length > 0 && <p className="mt-1 text-xs text-red-600">Escribe un correo válido.</p>}
+          </div>
+        )}
+        {comprobante === 'NINGUNO' && (
+          <p className="mb-3 text-xs text-slate-500">La venta queda registrada y la boleta (si corresponde) se emite igual; solo no se imprime nada.</p>
+        )}
+        {hayCredito && comprobante !== 'IMPRIMIR' && (
+          <p className="mb-3 text-xs text-amber-700">El vale de crédito para firmar se imprime siempre.</p>
+        )}
 
         <div className={`flex justify-between items-center mb-4 p-3 rounded border text-sm ${restante === 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
           <span className="font-semibold uppercase tracking-wider text-xs">

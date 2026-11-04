@@ -7,8 +7,10 @@ export interface VentaDetalle {
     precioUnitario: number;
     precio: number;
     producto: {
+        id: number;
         descripcion: string;
         precio: number;
+        unidadMedida?: string;
     };
 }
 

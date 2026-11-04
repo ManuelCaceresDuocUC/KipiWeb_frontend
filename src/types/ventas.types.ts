@@ -16,7 +16,12 @@ export interface ItemCarrito {
   precio: number;
   cantidad: number;
   subtotal: number;
+  unidadMedida?: string;
+  pesable?: boolean;
 }
+
+/** Qué se le entrega al cliente al cobrar. */
+export type ComprobanteVenta = 'IMPRIMIR' | 'CORREO' | 'NINGUNO';
 
 export interface ClienteInfo {
   id: number;
@@ -29,13 +34,11 @@ export interface ClienteInfo {
 }
 
 export type MetodoPago = 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA' | 'CREDITO';
-export type ProveedorTarjeta = 'GETNET' | 'MERCADOPAGO' | 'TRANSBANK';
 
 /** Una forma de pago de la venta. El total de todas las líneas debe ser igual al total de la venta. */
 export interface LineaPago {
   metodo: MetodoPago;
   monto: number;
-  proveedorTarjeta?: ProveedorTarjeta | null;
   referencia?: string;
   /** Transferencia: el cajero confirma que el dinero ya llegó a la cuenta. */
   confirmado?: boolean;

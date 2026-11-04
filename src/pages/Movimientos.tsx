@@ -2,6 +2,7 @@ import { useState } from "react";
 import Swal from "sweetalert2";
 import { useMovimiento, type Movimiento } from "../hooks/useMovimiento"; 
 import { apiFetch, leerError } from "../helpers/apiFetch";
+import { ModalDevolucion } from "../components/ModalDevolucion";
 import {
     adjuntarComprobante, enviarTicketPorCorreo, reimprimirBoleta, reimprimirTicket, reimprimirVale, reintentarBoleta,
     reintentarNotaCredito, reimprimirNotaCredito, imprimirNotaCredito, verComprobantes, ETIQUETA_DTE,
@@ -39,6 +40,7 @@ const obtenerFechasMes = () => {
 export const Movimientos = () => {
     const { movimientos, loading, error, cargarMovimientos } = useMovimiento();
     const [ventaSeleccionada, setVentaSeleccionada] = useState<Movimiento | null>(null);
+    const [ventaDevolucion, setVentaDevolucion] = useState<Movimiento | null>(null);
     
     const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('hoy');
     const [fecha1, setFecha1] = useState('');
@@ -243,11 +245,11 @@ export const Movimientos = () => {
                                             <div className="text-left">
                                                 <p className="font-medium text-slate-800">{det.producto.descripcion}</p>
                                                 <p className="text-xs text-slate-500 font-mono mt-0.5">
-                                                    {det.cantidad} und. &times; ${precioReal.toLocaleString('es-CL')}
+                                                    {det.cantidad.toLocaleString('es-CL', { maximumFractionDigits: 3 })} {det.producto.unidadMedida && det.producto.unidadMedida !== 'UN' ? det.producto.unidadMedida.toLowerCase() : 'und.'} &times; ${precioReal.toLocaleString('es-CL')}
                                                 </p>
                                             </div>
                                             <p className="font-semibold text-slate-900">
-                                                ${(det.cantidad * precioReal).toLocaleString('es-CL')}
+                                                ${Math.round(det.cantidad * precioReal).toLocaleString('es-CL')}
                                             </p>
                                         </div>
                                     );
@@ -349,6 +351,12 @@ export const Movimientos = () => {
                                     >
                                         Enviar por correo
                                     </button>
+                                    <button
+                                        onClick={() => setVentaDevolucion(ventaSeleccionada)}
+                                        className="col-span-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 py-2 rounded text-sm font-medium"
+                                    >
+                                        Registrar devolución o cambio
+                                    </button>
                                     {ventaSeleccionada.pagos?.some(pg => pg.metodo === 'CREDITO') && (
                                         <button
                                             onClick={() => reimprimirVale(ventaSeleccionada.id)}
@@ -402,6 +410,10 @@ export const Movimientos = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {ventaDevolucion && (
+                <ModalDevolucion venta={ventaDevolucion} esAdmin={esAdmin} onClose={() => setVentaDevolucion(null)} />
             )}
         </div>
     );

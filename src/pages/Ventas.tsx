@@ -51,7 +51,8 @@ export const Ventas = () => {
     carrito, agregarAlCarrito, actualizarCantidad, totalVenta, 
     eliminarDelCarrito, confirmarVentaFinal, showModalPago, 
     busqueda, setBusqueda, setShowModalPago, pagos, setPagos, permiteFiado,
-    clienteId, setClienteId 
+    clienteId, setClienteId, editarCantidadGranel,
+    comprobante, setComprobante, correoComprobante, setCorreoComprobante
   } = ventasContext;
 
   const [imprimirAuto, setImprimirAuto] = useState(impresionAutomaticaActiva());
@@ -122,7 +123,7 @@ const clientesContext = useClientesPos(setClienteId);
       }
       agregarAlCarrito(productoEncontrado);
       const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1000 });
-      Toast.fire({ icon: 'success', title: 'Ítem incorporado a la orden' });
+      if (!productoEncontrado.pesable) Toast.fire({ icon: 'success', title: 'Ítem incorporado a la orden' });
     } else {
       Swal.fire('Código no Registrado', `No existe un producto vinculado al código: ${codigo}`, 'warning');
     }
@@ -267,6 +268,7 @@ const clientesContext = useClientesPos(setClienteId);
           carrito={carrito} 
           actualizarCantidad={actualizarCantidad} 
           eliminarDelCarrito={eliminarDelCarrito} 
+          editarCantidadGranel={editarCantidadGranel}
         />
         <DesglosePago 
           neto={neto} 
@@ -303,6 +305,10 @@ const clientesContext = useClientesPos(setClienteId);
         setPagaCon={setPagaCon}
         onAbrirNuevoCliente={() => setShowModalNuevoCliente(true)} 
         confirmarVentaFinal={confirmarVentaFinal}
+        comprobante={comprobante}
+        setComprobante={setComprobante}
+        correoComprobante={correoComprobante}
+        setCorreoComprobante={setCorreoComprobante}
       />
 
       <ModalFiadoManual

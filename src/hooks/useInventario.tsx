@@ -14,6 +14,7 @@ export interface Producto {
     stockCritico: number;
     esInsumo: boolean;
     unidadMedida: string;
+    pesable?: boolean;
     receta?: IngredienteReceta[];
     categoria?: {
         id: number;

@@ -161,7 +161,7 @@ export const imprimirTicketLocal = (t: TicketLocal): Promise<boolean> =>
       .map(
         (i) =>
           `<tr><td colspan="2">${escaparHtml(i.descripcion)}</td></tr>` +
-          `<tr><td>${i.cantidad} x ${clp(i.precio)}</td><td class="d">${clp(i.cantidad * i.precio)}</td></tr>`,
+          `<tr><td>${Number(i.cantidad).toLocaleString('es-CL', { maximumFractionDigits: 3 })} x ${clp(i.precio)}</td><td class="d">${clp(Math.round(i.cantidad * i.precio))}</td></tr>`,
       )
       .join('');
     const medios = t.metodos.map((m) => ETIQUETA_METODO[m] ?? m).join(' + ');
