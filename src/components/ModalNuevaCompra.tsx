@@ -3,6 +3,7 @@ import Swal from 'sweetalert2';
 import { apiFetch, leerError } from '../helpers/apiFetch';
 import { TIPOS_DOC, clp, hoyISO, subirAdjunto, totalConIva, type Proveedor } from '../helpers/compras';
 import { ModalProveedor } from './ModalProveedor';
+import { ModalProductoRapido } from './ModalProductoRapido';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 const campo = 'w-full p-2 rounded border border-slate-300 focus:border-slate-500 outline-none text-sm bg-white';
@@ -44,6 +45,7 @@ export const ModalNuevaCompra = ({ proveedores, adjuntosHabilitados, proveedorIn
   const [nota, setNota] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
   const [nuevoProv, setNuevoProv] = useState(false);
+  const [nuevoProd, setNuevoProd] = useState<string | null>(null); // nombre inicial del producto nuevo
   const [guardando, setGuardando] = useState(false);
   const entrada = useRef<HTMLInputElement>(null);
 
@@ -147,17 +149,23 @@ export const ModalNuevaCompra = ({ proveedores, adjuntosHabilitados, proveedorIn
           <label className={etiqueta}>Productos comprados</label>
           <div className="relative">
             <input className={campo} placeholder="Buscar producto por nombre o código…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-            {sugerencias.length > 0 && (
-              <ul className="absolute z-10 left-0 right-0 mt-1 bg-white border border-slate-200 rounded shadow-lg max-h-56 overflow-y-auto divide-y divide-slate-100">
+            {busqueda.trim().length > 0 && (
+              <ul className="absolute z-10 left-0 right-0 mt-1 bg-white border border-slate-200 rounded shadow-lg max-h-64 overflow-y-auto divide-y divide-slate-100">
                 {sugerencias.map((p) => (
                   <li key={p.id} onClick={() => agregar(p)} className="p-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between gap-2">
                     <span className="truncate">{p.descripcion}</span>
                     <span className="text-xs text-slate-500 shrink-0">{p.codigoBarras ?? ''}</span>
                   </li>
                 ))}
+                <li onClick={() => setNuevoProd(busqueda.trim())} className="p-2.5 text-sm font-semibold text-slate-800 bg-slate-50 hover:bg-slate-100 cursor-pointer">
+                  + Crear «{busqueda.trim()}» como producto nuevo
+                </li>
               </ul>
             )}
           </div>
+          {lineas.length === 0 && busqueda.trim() === '' && (
+            <p className="text-xs text-slate-500 mt-1">¿No está en tu inventario? Escribe su nombre y elige «Crear como producto nuevo».</p>
+          )}
 
           {lineas.length > 0 && (
             <div className="mt-2 border border-slate-200 rounded overflow-x-auto">
@@ -242,6 +250,19 @@ export const ModalNuevaCompra = ({ proveedores, adjuntosHabilitados, proveedorIn
           <button onClick={guardar} disabled={!puede} className="px-5 py-2 text-sm rounded bg-slate-800 hover:bg-slate-900 text-white disabled:opacity-50">{guardando ? 'Guardando…' : 'Registrar compra'}</button>
         </div>
       </div>
+
+      {nuevoProd !== null && (
+        <ModalProductoRapido
+          nombreInicial={nuevoProd}
+          onCerrar={() => setNuevoProd(null)}
+          onCreado={(p) => {
+            setProductos((ps) => [...ps, p]);
+            setLineas((ls) => [...ls, { producto: p, cantidad: '1', costo: '' }]);
+            setNuevoProd(null);
+            setBusqueda('');
+          }}
+        />
+      )}
 
       {nuevoProv && (
         <ModalProveedor onCerrar={() => setNuevoProv(false)} onGuardado={(p) => { setNuevoProv(false); onProveedorCreado(p); setProveedorId(p.id); }} />
