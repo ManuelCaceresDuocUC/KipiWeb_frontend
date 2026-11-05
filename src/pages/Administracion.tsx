@@ -43,6 +43,18 @@ interface CuadraturaExtendida {
 export const Administracion = () => {
   // 1. Variables de entorno y almacenamiento local
   const API_URL = import.meta.env.VITE_API_URL;
+
+  // Reenvía el resumen de un cierre de caja al correo del administrador que lo pide
+  const reenviarCierre = async (turnoId: number) => {
+    try {
+      const res = await apiFetch(`${API_URL}/caja/historial/${turnoId}/reenviar-correo`, { method: 'POST' });
+      if (!res.ok) throw new Error(await leerError(res, 'No se pudo enviar el correo.'));
+      const d = (await res.json()) as { destino: string };
+      Swal.fire({ icon: 'success', title: 'Correo enviado', text: `Enviamos el cierre del turno #${turnoId} a ${d.destino}.` });
+    } catch (e) {
+      Swal.fire('No se envió', e instanceof Error ? e.message : 'No se pudo enviar el correo.', 'error');
+    }
+  };
   const empresaId = String(getSesion()?.empresa.id ?? '');
   const usuarioNombre = localStorage.getItem('usuarioNombre') || 'Usuario';
 
@@ -342,6 +354,7 @@ export const Administracion = () => {
                     <th className="p-3 text-right">Real Físico</th>
                     <th className="p-3 text-right">Diferencia</th>
                     <th className="p-3 text-center">Estado</th>
+                    <th className="p-3 text-center">Correo</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -392,12 +405,17 @@ export const Administracion = () => {
                             {c.estado}
                           </span>
                         </td>
+                        <td className="p-3 text-center">
+                          {c.estado === 'CERRADA' ? (
+                            <button onClick={() => reenviarCierre(c.id)} className="text-xs font-semibold text-slate-700 underline whitespace-nowrap">Enviarme resumen</button>
+                          ) : <span className="text-slate-300">—</span>}
+                        </td>
                       </tr>
                     );
                   })}
                   {cuadraturasFiltradas.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center p-8 text-slate-400 text-sm">No hay registros para el período seleccionado.</td>
+                      <td colSpan={8} className="text-center p-8 text-slate-400 text-sm">No hay registros para el período seleccionado.</td>
                     </tr>
                   )}
                 </tbody>

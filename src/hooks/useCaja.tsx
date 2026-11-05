@@ -212,7 +212,7 @@ export const useCaja = () => {
       void kvGuardar(claveCaja(), { abierta: false, guardadoEn: Date.now() });
       setMontoApertura('');
       localStorage.removeItem('cierrePendiente');
-      Swal.fire('Turno Finalizado', 'El cierre operativo y la respectiva cuadratura han sido almacenados correctamente.', 'success');
+      Swal.fire('Turno Finalizado', 'El cierre operativo y la respectiva cuadratura han sido almacenados correctamente. El resumen se enviará por correo a los administradores.', 'success');
     } catch (error) {
       Swal.fire('Error en Cierre Operativo', error instanceof Error ? error.message : 'Error desconocido al registrar el cierre', 'error');
       setShowModalCierre(true);
