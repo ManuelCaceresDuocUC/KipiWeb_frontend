@@ -36,6 +36,7 @@ export const DashboardLayout = () => {
     { name: 'Caja', path: '/ventas' },
     { name: 'Inventario', path: '/inventario', soloAdmin: true },
     { name: 'Compras', path: '/compras', soloAdmin: true },
+    { name: 'Ofertas', path: '/ofertas', soloAdmin: true },
     { name: 'Recetas', path: '/recetas', soloAdmin: true },
     { name: 'Movimientos', path: '/movimientos' },
     { name: 'Administración', path: '/administracion', soloAdmin: true },
