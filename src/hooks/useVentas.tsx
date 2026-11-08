@@ -8,6 +8,7 @@ import { agregarVentaPendiente, siguienteNumeroLocal, type VentaPendiente } from
 import { sinConexionSegura } from "../helpers/conexion";
 import { getSesion } from "../helpers/session";
 import { adjuntarComprobante } from "../helpers/documentosVenta";
+import { abrirGavetaSiHayEfectivo, forzarCopiaLocalPorGaveta } from "../helpers/gaveta";
 
 export interface Producto {
   id: number;
@@ -197,8 +198,10 @@ export const useVentas = (
       return;
     }
 
+    abrirGavetaSiHayEfectivo(pagos);
+
     // Sin conexión no hay cómo enviar correo: se imprime el comprobante local si el cliente lo quiere, o si el local guarda copia
-    if (comprobante === 'IMPRIMIR' || copiasTicket() === 2) void imprimirTicketLocal({
+    if (comprobante === 'IMPRIMIR' || copiasTicket() === 2 || forzarCopiaLocalPorGaveta(pagos)) void imprimirTicketLocal({
       numeroLocal: venta.numeroLocal,
       fecha: ahora,
       empresa: sesion.empresa.razonSocial,
@@ -254,7 +257,8 @@ export const useVentas = (
       idempotencyKey: claveRef.current,
       copiasTicket: copiasTicket(),
       // Cliente sin papel (correo o nada) pero el local tiene 2 copias activadas: se imprime solo la del local
-      soloCopiaLocal: comprobante !== 'IMPRIMIR' && copiasTicket() === 2,
+      // (con la gaveta "por impresión", toda venta con efectivo imprime la copia del local para que se abra)
+      soloCopiaLocal: comprobante !== 'IMPRIMIR' && (copiasTicket() === 2 || forzarCopiaLocalPorGaveta(pagos)),
       items: carrito.map(p => ({ productoId: p.id, cantidad: p.cantidad })),
       pagos: pagos.map(l => ({
         metodo: l.metodo,
@@ -264,7 +268,7 @@ export const useVentas = (
       })),
     };
     const comprobanteElegido = comprobante;
-    const soloLocalElegido = comprobante !== 'IMPRIMIR' && copiasTicket() === 2;
+    const soloLocalElegido = comprobante !== 'IMPRIMIR' && (copiasTicket() === 2 || forzarCopiaLocalPorGaveta(pagos));
     const correoElegido = correoComprobante.trim();
 
     const conCredito = pagos.some(l => l.metodo === 'CREDITO');
@@ -318,6 +322,8 @@ export const useVentas = (
 
       const duplicada = respuestaBackend?.status === 'duplicate';
       const hayCredito = pagos.some(l => l.metodo === 'CREDITO');
+      // Gaveta: se abre solo si hay efectivo en el pago (nunca por una venta repetida)
+      if (!duplicada) abrirGavetaSiHayEfectivo(pagos);
 
       // Ticket 80 mm (y vale de crédito si corresponde): se imprime desde el navegador sin abrir el PDF.
       // No se espera: la caja queda libre mientras sale el ticket.

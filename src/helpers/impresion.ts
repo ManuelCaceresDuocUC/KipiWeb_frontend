@@ -10,7 +10,17 @@
 
 const CLAVE_AUTO = 'kipipos_impresion_auto';
 
+/** Con la gaveta "por impresión" la gaveta se abre al imprimir: la impresión no puede desactivarse. */
+export const modoGavetaImpresion = (): boolean => {
+  try {
+    return localStorage.getItem('kipipos_gaveta_modo') === 'IMPRESION';
+  } catch {
+    return false;
+  }
+};
+
 export const impresionAutomaticaActiva = (): boolean => {
+  if (modoGavetaImpresion()) return true;
   try {
     return localStorage.getItem(CLAVE_AUTO) !== '0';
   } catch {
@@ -212,3 +222,43 @@ export const imprimirTicketLocal = (t: TicketLocal): Promise<boolean> =>
     document.body.appendChild(iframe);
     setTimeout(() => terminar(false), 8000);
   });
+
+
+/** Imprime un HTML de 80 mm en el equipo (mismo mecanismo que el comprobante local). Ignora el interruptor de impresión automática. */
+export const imprimirHtml80 = (cuerpo: string): Promise<boolean> =>
+  new Promise((resolve) => {
+    const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+      @page{size:80mm auto;margin:3mm}
+      body{font-family:monospace;font-size:12px;width:72mm;margin:0;color:#000}
+      h1{font-size:14px;text-align:center;margin:0 0 2px}
+      p{margin:2px 0}.c{text-align:center}.d{text-align:right}
+      hr{border:0;border-top:1px dashed #000;margin:6px 0}
+      .t{font-size:15px;font-weight:bold}
+    </style></head><body>${cuerpo}</body></html>`;
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none;';
+    let resuelto = false;
+    const terminar = (ok: boolean) => {
+      if (resuelto) return;
+      resuelto = true;
+      resolve(ok);
+    };
+    iframe.onload = () => {
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          terminar(true);
+        } catch {
+          terminar(false);
+        }
+        setTimeout(() => iframe.remove(), 120000);
+      }, 200);
+    };
+    iframe.srcdoc = html;
+    document.body.appendChild(iframe);
+    setTimeout(() => terminar(false), 8000);
+  });
+
+export { escaparHtml as escaparHtmlTicket };

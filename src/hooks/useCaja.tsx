@@ -3,6 +3,7 @@ import { apiFetch, esErrorDeConexion, leerError } from '../helpers/apiFetch';
 import { kvGuardar, kvLeer } from '../helpers/almacenOffline';
 import { claveCaja } from '../helpers/session';
 import { pendientesDeMiSesion } from '../helpers/colaVentas';
+import { gavetaPorEvento } from '../helpers/gaveta';
 import Swal from 'sweetalert2';
 import type { ResumenCaja } from '../types/ventas.types';
 
@@ -124,7 +125,8 @@ export const useCaja = () => {
       });
 
       if (!response.ok) throw new Error(await leerError(response, "Error en la comunicación al registrar el movimiento"));
-      
+
+      void gavetaPorEvento({ tipo: tipoMovimiento, monto: Number(montoMovimiento), motivo: motivoMovimiento }); // abre la gaveta (puente) o imprime el comprobante (por impresión)
       Swal.fire('Operación Registrada', `El ${tipoMovimiento === 'ingreso' ? 'ingreso' : 'retiro'} ha sido registrado correctamente en el sistema.`, 'success');
       setShowModalMovimiento(false);
       setMontoMovimiento('');

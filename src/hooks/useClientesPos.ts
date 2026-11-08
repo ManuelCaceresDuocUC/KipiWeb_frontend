@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { apiFetch, leerError } from '../helpers/apiFetch';
 import Swal from 'sweetalert2';
 import { imprimirDocumentos } from '../helpers/impresion';
+import { abrirGaveta } from '../helpers/gaveta';
 import type { ClienteInfo } from '../types/ventas.types';
 
 const formatearRut = (rut: string) => {
@@ -102,6 +103,7 @@ export const useClientesPos = (
       });
 
     if (response.ok) {
+      if (metodoPago === 'EFECTIVO') void abrirGaveta(); // el abono en efectivo entra a la caja
       // Boleta (si la empresa la emite por pagos de deuda) o, si no, el comprobante de abono (80 mm).
       // Si falla la lectura, el abono igual quedó registrado
       let aviso = '';

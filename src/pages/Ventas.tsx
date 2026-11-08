@@ -5,6 +5,8 @@ import Swal from 'sweetalert2';
 import { useInventario } from '../hooks/useInventario';
 import { useVentas } from '../hooks/useVentas';
 import { copiasTicket, guardarCopiasTicket, guardarImpresionAutomatica, impresionAutomaticaActiva } from '../helpers/impresion';
+import { estadoPuente, gavetaPorEvento, GUIA_DRIVER_HTML, guardarModoGaveta, modoGaveta, type ModoGaveta } from '../helpers/gaveta';
+import { apiFetch, leerError } from '../helpers/apiFetch';
 import { useCaja } from '../hooks/useCaja';
 import { useClientesPos } from '../hooks/useClientesPos';
 
@@ -57,6 +59,8 @@ export const Ventas = () => {
 
   const [imprimirAuto, setImprimirAuto] = useState(impresionAutomaticaActiva());
   const [copias, setCopias] = useState<1 | 2>(copiasTicket());
+  const [gaveta, setGaveta] = useState<ModoGaveta>(modoGaveta());
+  const esAdmin = (localStorage.getItem('usuarioRol') || '').toLowerCase().trim() === 'admin';
 
   // 2. Hook de Caja
   const cajaContext = useCaja();
@@ -231,6 +235,53 @@ const clientesContext = useClientesPos(setClienteId);
                   <option value={2}>2 (cliente y local)</option>
                 </select>
               </label>
+              <label className="flex items-center justify-between gap-3 w-full px-4 py-2.5 border-b border-slate-100 font-medium text-slate-700">
+                <span>💵 Gaveta de efectivo</span>
+                <select
+                  value={gaveta}
+                  onChange={(e) => { const v = e.target.value as ModoGaveta; setGaveta(v); guardarModoGaveta(v); if (v === 'IMPRESION') { setImprimirAuto(true); } }}
+                  className="rounded border border-slate-300 bg-white px-1 py-0.5 text-sm"
+                >
+                  <option value="NINGUNA">No usar</option>
+                  <option value="IMPRESION">Al imprimir (sin instalar)</option>
+                  <option value="PUENTE">Programa local</option>
+                </select>
+              </label>
+              {gaveta === 'IMPRESION' && (
+                <button onClick={() => { setMenuAbierto(false); void Swal.fire({ title: 'Configurar la gaveta', html: GUIA_DRIVER_HTML, confirmButtonText: 'Entendido' }); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">❓ Cómo configurar la gaveta</button>
+              )}
+              {gaveta !== 'NINGUNA' && (
+                <button onClick={() => { setMenuAbierto(false); void (async () => {
+                  if (gaveta === 'PUENTE') {
+                    const est = await estadoPuente();
+                    if (!est.ok) {
+                      void Swal.fire('Gaveta sin conexión', `${est.error} Instala o inicia el programa de la gaveta (carpeta gaveta-puente, archivo LEEME.md).`, 'warning');
+                      return;
+                    }
+                  }
+                  const ok = await gavetaPorEvento({ tipo: 'prueba' });
+                  void Swal.fire(ok ? 'Orden enviada' : 'No se pudo enviar', ok ? '¿Se abrió la gaveta? Si no, revisa el cable y la opción de gaveta en la impresora (botón "Cómo configurar").' : 'Revisa la impresora y vuelve a intentar.', ok ? 'success' : 'error');
+                })(); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">🔌 Probar gaveta</button>
+              )}
+              {gaveta !== 'NINGUNA' && esAdmin && (
+                <button onClick={() => { setMenuAbierto(false); void (async () => {
+                  const r = await Swal.fire({
+                    title: 'Abrir gaveta sin venta',
+                    input: 'text', inputPlaceholder: 'Motivo (obligatorio)',
+                    inputValidator: (v) => (v && v.trim().length >= 3 ? null : 'Escribe el motivo'),
+                    showCancelButton: true, confirmButtonText: 'Abrir', cancelButtonText: 'Cancelar',
+                  });
+                  if (!r.isConfirmed) return;
+                  try {
+                    const motivo = String(r.value).trim();
+                    const res = await apiFetch(`${import.meta.env.VITE_API_URL}/caja/gaveta/abrir`, { method: 'POST', body: JSON.stringify({ motivo }) });
+                    if (!res.ok) throw new Error(await leerError(res, 'No se pudo registrar la apertura'));
+                    await gavetaPorEvento({ tipo: 'sin_venta', motivo });
+                  } catch (e) {
+                    void Swal.fire('No se abrió', e instanceof Error ? e.message : 'Error al registrar la apertura', 'error');
+                  }
+                })(); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">🔓 Abrir gaveta sin venta (queda registrado)</button>
+              )}
               <button onClick={() => { handleVerResumen(); setMenuAbierto(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">Resumen Financiero</button>
               <button onClick={() => { handleCerrarCaja(); setMenuAbierto(false); }} className="w-full text-left px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-medium">Cierre de Turno</button>
             </div>
