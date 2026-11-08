@@ -1,20 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { buscarPendientes, esEstacionImpresion, EVENTO_ROL_IMPRESION, type TrabajoImpresion } from '../helpers/estacionImpresion';
 import { imprimirDocumentos } from '../helpers/impresion';
 import { abrirGaveta, gavetaPorEvento, modoGaveta } from '../helpers/gaveta';
 
-const INTERVALO_MS = 4000;
+const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Si este equipo es la "estación de impresión", consulta cada pocos segundos si hay tickets enviados desde otros equipos
- * (por ejemplo, un celular) y los imprime aquí. Debe haber una sesión iniciada y la ventana abierta (no minimizada).
- * El reloj corre en un Worker para que el navegador no lo frene cuando la pestaña queda detrás de otras ventanas.
+ * Si este equipo es la "estación de impresión", mantiene una consulta abierta al servidor (espera larga): cuando otro equipo,
+ * por ejemplo un celular, manda un ticket, llega casi al instante y se imprime aquí. Debe haber una sesión iniciada y la
+ * ventana abierta. Para que imprima sin diálogo, abrir el navegador con --kiosk-printing (ver acceso-caja/LEEME.md).
  */
 export const EstacionImpresion = () => {
   const [activa, setActiva] = useState(esEstacionImpresion());
   const [ultimo, setUltimo] = useState<Date | null>(null);
   const [sinRed, setSinRed] = useState(false);
-  const ocupado = useRef(false);
 
   useEffect(() => {
     const alCambiar = () => setActiva(esEstacionImpresion());
@@ -24,6 +23,7 @@ export const EstacionImpresion = () => {
 
   useEffect(() => {
     if (!activa) return;
+    let vigente = true;
 
     const ejecutar = async (t: TrabajoImpresion) => {
       if (t.tipo === 'PDF') {
@@ -34,39 +34,25 @@ export const EstacionImpresion = () => {
       }
     };
 
-    const revisar = async () => {
-      if (ocupado.current) return;
-      ocupado.current = true;
-      try {
-        const lista = await buscarPendientes();
+    const bucle = async () => {
+      while (vigente) {
+        const lista = await buscarPendientes(); // queda esperando hasta ~12 s o hasta que llegue un ticket
+        if (!vigente) return;
         setSinRed(lista === null);
-        if (lista) {
-          setUltimo(new Date());
-          for (const t of lista) {
-            await ejecutar(t);
-            await new Promise((r) => setTimeout(r, 800));
-          }
+        if (lista === null) {
+          await espera(3000); // sin red o servidor caído: reintenta sin saturar
+          continue;
         }
-      } finally {
-        ocupado.current = false;
+        setUltimo(new Date());
+        for (const t of lista) {
+          if (!vigente) return;
+          await ejecutar(t);
+        }
       }
     };
-
-    void revisar();
-    let worker: Worker | null = null;
-    let url: string | null = null;
-    let intervalo: number | null = null;
-    try {
-      url = URL.createObjectURL(new Blob([`setInterval(function(){postMessage(1)},${INTERVALO_MS})`], { type: 'text/javascript' }));
-      worker = new Worker(url);
-      worker.onmessage = () => void revisar();
-    } catch {
-      intervalo = window.setInterval(() => void revisar(), INTERVALO_MS); // sin Worker: se usa el reloj normal
-    }
+    void bucle();
     return () => {
-      worker?.terminate();
-      if (url) URL.revokeObjectURL(url);
-      if (intervalo !== null) window.clearInterval(intervalo);
+      vigente = false;
     };
   }, [activa]);
 

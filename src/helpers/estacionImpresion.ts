@@ -85,7 +85,8 @@ export const enviarAEstacion = async (t: EnvioTrabajo): Promise<boolean> => {
 
 export const buscarPendientes = async (): Promise<TrabajoImpresion[] | null> => {
   try {
-    const r = await apiFetch(`${API()}/pendientes`, { timeoutMs: 10000 });
+    // espera=12: el servidor deja la consulta abierta hasta que llegue un ticket (casi instantáneo)
+    const r = await apiFetch(`${API()}/pendientes?espera=12`, { timeoutMs: 25000 });
     if (!r.ok) return null;
     return (await r.json()) as TrabajoImpresion[];
   } catch {
