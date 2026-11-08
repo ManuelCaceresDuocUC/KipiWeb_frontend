@@ -8,6 +8,7 @@
  * Nunca bloquea una venta: si algo falla, solo se avisa con un mensaje breve.
  */
 import { escaparHtmlTicket, imprimirHtml80 } from './impresion';
+import { enviarAEstacion, impresionRemotaActiva } from './estacionImpresion';
 import { getSesion } from './session';
 
 export type ModoGaveta = 'NINGUNA' | 'IMPRESION' | 'PUENTE';
@@ -83,12 +84,14 @@ export const abrirGaveta = async (forzar = false): Promise<boolean> => {
 
 /** Venta: en modo PUENTE abre si hay efectivo. En modo IMPRESION la apertura la provoca el comprobante (ver forzarCopiaLocalPorGaveta). */
 export const abrirGavetaSiHayEfectivo = (pagos: Array<{ metodo: string }>) => {
+  if (impresionRemotaActiva()) return; // la gaveta la abre la caja de impresión al recibir el ticket
   if (pagos.some((p) => p.metodo === 'EFECTIVO')) void abrirGaveta();
 };
 
 /** En modo IMPRESION, toda venta con efectivo debe imprimir al menos la copia del local para que se abra la gaveta. */
 export const forzarCopiaLocalPorGaveta = (pagos: Array<{ metodo: string }>): boolean =>
-  modoGaveta() === 'IMPRESION' && pagos.some((p) => p.metodo === 'EFECTIVO');
+  // Si este equipo manda a imprimir a la caja, la gaveta está allá: toda venta con efectivo lleva la copia del local
+  (modoGaveta() === 'IMPRESION' || impresionRemotaActiva()) && pagos.some((p) => p.metodo === 'EFECTIVO');
 
 export type EventoCaja =
   | { tipo: 'ingreso' | 'retiro'; monto: number; motivo: string }
@@ -106,7 +109,9 @@ const TITULOS: Record<EventoCaja['tipo'], string> = {
  * Movimientos de caja y aperturas manuales. PUENTE: manda la orden. IMPRESION: imprime un comprobante interno
  * mínimo de 80 mm (sirve además como respaldo en papel) y el driver abre la gaveta. Sin modo activo, no hace nada.
  */
-export const gavetaPorEvento = async (ev: EventoCaja): Promise<boolean> => {
+export const gavetaPorEvento = async (ev: EventoCaja, opts: { local?: boolean } = {}): Promise<boolean> => {
+  // Equipo sin impresora: la caja de impresión (PC) imprime el comprobante y abre su gaveta
+  if (!opts.local && impresionRemotaActiva()) return enviarAEstacion({ tipo: 'CAJA', evento: ev });
   const modo = modoGaveta();
   if (modo === 'NINGUNA' && ev.tipo !== 'prueba') return false;
   if (modo === 'PUENTE') return abrirGaveta(true);

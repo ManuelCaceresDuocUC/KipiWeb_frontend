@@ -333,6 +333,7 @@ export const useVentas = (
         void imprimirDocumentos(
           respuestaBackend?.impresionPdf ? [respuestaBackend.impresionPdf] : [respuestaBackend?.boletaPdf, respuestaBackend?.valePdf],
           `Venta_${respuestaBackend?.ventaId ?? ''}`,
+          { abrirGaveta: pagos.some(l => l.metodo === 'EFECTIVO') },
         );
       }
 

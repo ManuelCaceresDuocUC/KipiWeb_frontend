@@ -7,6 +7,7 @@ import { useVentas } from '../hooks/useVentas';
 import { copiasTicket, guardarCopiasTicket, guardarImpresionAutomatica, impresionAutomaticaActiva } from '../helpers/impresion';
 import { estadoPuente, gavetaPorEvento, GUIA_DRIVER_HTML, guardarModoGaveta, modoGaveta, type ModoGaveta } from '../helpers/gaveta';
 import { apiFetch, leerError } from '../helpers/apiFetch';
+import { estacionConectada, guardarRolImpresion, rolImpresion, type RolImpresion } from '../helpers/estacionImpresion';
 import { useCaja } from '../hooks/useCaja';
 import { useClientesPos } from '../hooks/useClientesPos';
 
@@ -60,6 +61,7 @@ export const Ventas = () => {
   const [imprimirAuto, setImprimirAuto] = useState(impresionAutomaticaActiva());
   const [copias, setCopias] = useState<1 | 2>(copiasTicket());
   const [gaveta, setGaveta] = useState<ModoGaveta>(modoGaveta());
+  const [rolImp, setRolImp] = useState<RolImpresion>(rolImpresion());
   const esAdmin = (localStorage.getItem('usuarioRol') || '').toLowerCase().trim() === 'admin';
 
   // 2. Hook de Caja
@@ -235,6 +237,24 @@ const clientesContext = useClientesPos(setClienteId);
                   <option value={2}>2 (cliente y local)</option>
                 </select>
               </label>
+              <label className="flex items-center justify-between gap-3 w-full px-4 py-2.5 border-b border-slate-100 font-medium text-slate-700">
+                <span>🖨️ Este equipo</span>
+                <select
+                  value={rolImp}
+                  onChange={(e) => { const v = e.target.value as RolImpresion; setRolImp(v); guardarRolImpresion(v); }}
+                  className="rounded border border-slate-300 bg-white px-1 py-0.5 text-sm"
+                >
+                  <option value="LOCAL">Imprime aquí</option>
+                  <option value="REMOTA">Manda a la caja de impresión</option>
+                  <option value="ESTACION">ES la caja de impresión</option>
+                </select>
+              </label>
+              {rolImp === 'REMOTA' && (
+                <button onClick={() => { setMenuAbierto(false); void (async () => {
+                  const c = await estacionConectada();
+                  void Swal.fire(c ? 'Caja de impresión conectada' : 'Sin caja de impresión', c === null ? 'No se pudo consultar. Revisa tu conexión.' : c ? 'Los tickets de este equipo saldrán en la impresora de la caja.' : 'Abre KIPIPOS en el PC de la impresora, entra con tu usuario y elige "ES la caja de impresión" en Opciones Operativas.', c ? 'success' : 'warning');
+                })(); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 font-medium text-slate-700 border-b border-slate-100">🔎 Comprobar caja de impresión</button>
+              )}
               <label className="flex items-center justify-between gap-3 w-full px-4 py-2.5 border-b border-slate-100 font-medium text-slate-700">
                 <span>💵 Gaveta de efectivo</span>
                 <select

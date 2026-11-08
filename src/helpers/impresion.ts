@@ -8,6 +8,8 @@
  * - Si el navegador no permite imprimir el iframe, se descarga el PDF como respaldo.
  */
 
+import { enviarAEstacion, impresionRemotaActiva } from './estacionImpresion';
+
 const CLAVE_AUTO = 'kipipos_impresion_auto';
 
 /** Con la gaveta "por impresión" la gaveta se abre al imprimir: la impresión no puede desactivarse. */
@@ -127,9 +129,18 @@ export const imprimirPdfBase64 = (base64: string): Promise<boolean> =>
  * Imprime varios documentos en orden (ticket, vale...). Espera entre uno y otro para que, si el navegador
  * muestra diálogo, no se pisen. Si falla alguno, lo descarga para que no se pierda.
  */
-export const imprimirDocumentos = async (documentos: Array<string | null | undefined>, prefijo = 'Ticket') => {
-  if (!impresionAutomaticaActiva()) return;
+export const imprimirDocumentos = async (
+  documentos: Array<string | null | undefined>,
+  prefijo = 'Ticket',
+  opts: { abrirGaveta?: boolean; forzar?: boolean } = {},
+) => {
+  if (!opts.forzar && !impresionAutomaticaActiva()) return;
   const validos = documentos.filter((d): d is string => !!d);
+  // Este equipo no tiene impresora: el ticket se manda a la caja de impresión (PC) en vez de imprimirse aquí
+  if (!opts.forzar && impresionRemotaActiva()) {
+    if (validos.length > 0) await enviarAEstacion({ tipo: 'PDF', documentos: validos, abrirGaveta: !!opts.abrirGaveta });
+    return;
+  }
   for (let i = 0; i < validos.length; i++) {
     const ok = await imprimirPdfBase64(validos[i]);
     if (!ok) descargarPdfBase64(validos[i], `${prefijo}_${Date.now()}_${i + 1}.pdf`);

@@ -112,7 +112,7 @@ export const useClientesPos = (
         const cuerpo = await response.json();
         conBoleta = Boolean(cuerpo?.boletaPdf);
         const documentos = conBoleta ? [cuerpo.boletaPdf, cuerpo.comprobantePdf] : [cuerpo?.comprobantePdf];
-        if (documentos.some(Boolean)) void imprimirDocumentos(documentos, 'Abono');
+        if (documentos.some(Boolean)) void imprimirDocumentos(documentos, 'Abono', { abrirGaveta: metodoPago === 'EFECTIVO' });
         aviso = cuerpo?.dteAviso || '';
         if (conBoleta && cuerpo?.dteFolio) aviso = `Boleta N° ${cuerpo.dteFolio} emitida.`;
       } catch { /* sin comprobante */ }

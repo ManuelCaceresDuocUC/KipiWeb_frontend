@@ -5,6 +5,7 @@ import { esAdmin, getSesion, limpiarSesion } from '../helpers/session';
 import { AvisoConexion } from './AvisoConexion';
 import { BannerSuscripcion } from './BannerSuscripcion';
 import { ColaVentas } from './ColaVentas';
+import { EstacionImpresion } from './EstacionImpresion';
 import { listarVentasPendientes } from '../helpers/colaVentas';
 
 export const DashboardLayout = () => {
@@ -144,6 +145,7 @@ export const DashboardLayout = () => {
         <BannerSuscripcion />
         <Outlet />
       </main>
+      <EstacionImpresion />
       
     </div>
   );
