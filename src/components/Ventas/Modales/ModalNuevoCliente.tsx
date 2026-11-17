@@ -1,4 +1,5 @@
 import React from 'react';
+import { filtrarTelefono, nombrePropio, normalizarCorreo, soloDigitos, telefonoParaEnviar } from '../../../helpers/validaciones';
 
 // Creamos un tipo específico para los datos del formulario
 type DatosNuevoCliente = { 
@@ -43,8 +44,9 @@ export const ModalNuevoCliente = ({
             <input 
               required type="text" placeholder="Ej: Juan Pérez"
               className="w-full p-2 rounded border border-slate-300 outline-none focus:border-slate-500" 
-              value={nuevoCliente.nombre} 
+              value={nuevoCliente.nombre} maxLength={100}
               onChange={(e) => setNuevoCliente({...nuevoCliente, nombre: e.target.value})} 
+              onBlur={() => setNuevoCliente({...nuevoCliente, nombre: nombrePropio(nuevoCliente.nombre)})} 
             />
           </div>
           <div>
@@ -63,29 +65,30 @@ export const ModalNuevoCliente = ({
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Teléfono</label>
               <input 
-                type="text" placeholder="+569..."
+                type="tel" inputMode="tel" maxLength={20} placeholder="+56 9 1234 5678"
                 className="w-full p-2 rounded border border-slate-300 outline-none focus:border-slate-500 font-mono" 
                 value={nuevoCliente.telefono} 
-                onChange={(e) => setNuevoCliente({...nuevoCliente, telefono: e.target.value})} 
+                onChange={(e) => setNuevoCliente({...nuevoCliente, telefono: filtrarTelefono(e.target.value)})} 
+                onBlur={() => setNuevoCliente({...nuevoCliente, telefono: telefonoParaEnviar(nuevoCliente.telefono) ?? nuevoCliente.telefono})} 
               />
             </div>
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Email</label>
               <input 
-                type="email" placeholder="cliente@correo.com"
+                type="email" placeholder="cliente@correo.com" autoCapitalize="none" spellCheck={false} maxLength={150}
                 className="w-full p-2 rounded border border-slate-300 outline-none focus:border-slate-500" 
                 value={nuevoCliente.email} 
-                onChange={(e) => setNuevoCliente({...nuevoCliente, email: e.target.value})} 
+                onChange={(e) => setNuevoCliente({...nuevoCliente, email: normalizarCorreo(e.target.value)})} 
               />
             </div>
           </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Límite de Crédito ($)</label>
             <input 
-              type="number" min="0" placeholder="0"
+              type="text" inputMode="numeric" placeholder="0"
               className="w-full p-2 rounded border border-slate-300 outline-none focus:border-slate-500 font-mono" 
               value={nuevoCliente.limiteCredito || ''} 
-              onChange={(e) => setNuevoCliente({...nuevoCliente, limiteCredito: Number(e.target.value)})} 
+              onChange={(e) => setNuevoCliente({...nuevoCliente, limiteCredito: Number(soloDigitos(e.target.value, 8))})} 
             />
           </div>
           <button type="submit" className="w-full text-white font-medium py-2.5 rounded shadow-sm mt-4 bg-slate-800 hover:bg-slate-900 text-sm uppercase tracking-wider transition-colors">

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { errorCorreo, errorTelefono, errorTexto, filtrarTelefono, limpiarTexto, nombrePropio, normalizarCorreo, telefonoParaEnviar } from '../helpers/validaciones';
 import { CheckCircle2, Loader2, Mail, MessageCircle, Phone } from 'lucide-react';
 import { NavbarPublico } from '../components/publico/NavbarPublico';
 import { FooterPublico } from '../components/publico/FooterPublico';
@@ -19,12 +20,26 @@ export const Contacto = () => {
   const [enviado, setEnviado] = useState(false);
   const [error, setError] = useState('');
 
-  const cambiar = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+  const cambiar = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setForm((f) => ({
+      ...f,
+      [name]: name === 'correo' ? normalizarCorreo(value) : name === 'telefono' ? filtrarTelefono(value) : value,
+    }));
+  };
 
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    const problema =
+      errorTexto(form.nombre, 'Tu nombre', 2, 100) ??
+      errorCorreo(form.correo, true, 'Tu correo') ??
+      errorTelefono(form.telefono, false, 'Tu teléfono') ??
+      errorTexto(form.mensaje, 'El mensaje', 10, 3000);
+    if (problema) {
+      setError(problema);
+      return;
+    }
     if (turnstileActivo && !captcha) {
       setError('Confirma que no eres un robot para enviar el mensaje.');
       return;
@@ -33,7 +48,13 @@ export const Contacto = () => {
     try {
       const r = await apiFetch(`${API}/auth/contacto`, {
         method: 'POST',
-        body: JSON.stringify({ ...form, turnstile: captcha }),
+        body: JSON.stringify({
+          ...form,
+          nombre: nombrePropio(form.nombre),
+          telefono: form.telefono.trim() ? telefonoParaEnviar(form.telefono) ?? '' : '',
+          asunto: limpiarTexto(form.asunto),
+          turnstile: captcha,
+        }),
       });
       if (!r.ok) throw new Error(await leerError(r, 'No pudimos enviar tu mensaje.'));
       setEnviado(true);
@@ -82,10 +103,10 @@ export const Contacto = () => {
                     <input required name="nombre" maxLength={100} value={form.nombre} onChange={cambiar} autoComplete="name" className={`${campo} mt-1 normal-case tracking-normal font-normal`} />
                   </label>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">Correo *
-                    <input required type="email" name="correo" maxLength={150} value={form.correo} onChange={cambiar} autoComplete="email" className={`${campo} mt-1 normal-case tracking-normal font-normal`} />
+                    <input required type="email" name="correo" autoCapitalize="none" spellCheck={false} maxLength={150} value={form.correo} onChange={cambiar} autoComplete="email" className={`${campo} mt-1 normal-case tracking-normal font-normal`} />
                   </label>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">Teléfono
-                    <input name="telefono" maxLength={30} value={form.telefono} onChange={cambiar} autoComplete="tel" className={`${campo} mt-1 normal-case tracking-normal font-normal`} />
+                    <input name="telefono" type="tel" inputMode="tel" placeholder="+56 9 1234 5678" maxLength={20} value={form.telefono} onChange={cambiar} autoComplete="tel" className={`${campo} mt-1 normal-case tracking-normal font-normal`} />
                   </label>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">Asunto
                     <input name="asunto" maxLength={120} value={form.asunto} onChange={cambiar} className={`${campo} mt-1 normal-case tracking-normal font-normal`} />

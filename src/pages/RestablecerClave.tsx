@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { errorContrasena } from '../helpers/validaciones';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { Logo } from '../components/publico/Logo';
@@ -18,7 +19,8 @@ export const RestablecerClave = () => {
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (clave.length < 8) return setError('La contraseña debe tener al menos 8 caracteres.');
+    const problema = errorContrasena(clave);
+    if (problema) return setError(problema);
     if (clave !== confirma) return setError('Las contraseñas no coinciden.');
     setCargando(true);
     try {
@@ -54,7 +56,7 @@ export const RestablecerClave = () => {
         ) : (
           <form onSubmit={enviar} className="mt-6 space-y-4 text-sm">
             {error && <div role="alert" className="rounded bg-red-50 border border-red-200 text-red-700 p-3">{error}</div>}
-            <input type="password" value={clave} onChange={(e) => setClave(e.target.value)} autoComplete="new-password" placeholder="Nueva contraseña (mín. 8 caracteres)" className={input} />
+            <input type="password" value={clave} onChange={(e) => setClave(e.target.value)} autoComplete="new-password" placeholder="Nueva contraseña (mín. 8, con letras y números)" maxLength={100} className={input} />
             <input type="password" value={confirma} onChange={(e) => setConfirma(e.target.value)} autoComplete="new-password" placeholder="Repite la contraseña" className={input} />
             <button type="submit" disabled={cargando} className="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-3 rounded flex justify-center items-center gap-2 disabled:opacity-60">
               {cargando && <Loader2 className="w-4 h-4 animate-spin" />} Guardar contraseña

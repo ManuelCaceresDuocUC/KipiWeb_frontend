@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { errorContrasena, errorCorreo, errorUsuario, filtrarUsuario, normalizarCorreo } from '../helpers/validaciones';
 import Swal from 'sweetalert2';
 import { apiFetch, leerError } from '../helpers/apiFetch';
 import { getSesion } from '../helpers/session';
@@ -63,14 +64,14 @@ export const GestionEquipo = () => {
     setErrorForm('');
     if (!form.sucursalId) return setErrorForm('Selecciona una sucursal.');
     if (modal.modo === 'crear') {
-      if (!/^[\p{L}0-9._-]{3,50}$/u.test(form.usuario.trim())) return setErrorForm('Usuario de 3 a 50 caracteres: letras, números, punto, guion o guion bajo (sin espacios).');
-      if (form.contrasena.length < 8) return setErrorForm('La contraseña debe tener al menos 8 caracteres.');
-      if (form.correo.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.correo.trim())) return setErrorForm('El correo no es válido (puedes dejarlo vacío).');
+      const problema = errorUsuario(form.usuario) ?? errorContrasena(form.contrasena) ?? errorCorreo(form.correo, false);
+      if (problema) return setErrorForm(problema);
+      if (usuarios.some((u) => u.usuario.toLowerCase() === form.usuario.trim().toLowerCase())) return setErrorForm(`El usuario "${form.usuario.trim()}" ya existe.`);
     }
     setGuardando(true);
     try {
       const r = modal.modo === 'crear'
-        ? await apiFetch(`${API}/usuarios`, { method: 'POST', body: JSON.stringify({ usuario: form.usuario.trim(), contrasena: form.contrasena, correo: form.correo.trim(), rol: form.rol, sucursalId: Number(form.sucursalId) }) })
+        ? await apiFetch(`${API}/usuarios`, { method: 'POST', body: JSON.stringify({ usuario: form.usuario.trim(), contrasena: form.contrasena, correo: normalizarCorreo(form.correo), rol: form.rol, sucursalId: Number(form.sucursalId) }) })
         : await apiFetch(`${API}/usuarios/${modal.usuario.id}`, { method: 'PUT', body: JSON.stringify({ rol: form.rol, sucursalId: Number(form.sucursalId) }) });
       if (!r.ok) throw new Error(await leerError(r, 'No se pudo guardar.'));
       setModal(null);
@@ -87,13 +88,13 @@ export const GestionEquipo = () => {
     const { value: nueva } = await Swal.fire({
       title: `Nueva contraseña para "${u.usuario}"`,
       input: 'password',
-      inputLabel: 'Mínimo 8 caracteres. Entrégasela al usuario por un canal seguro.',
+      inputLabel: 'Mínimo 8 caracteres, con letras y números. Entrégasela al usuario por un canal seguro.',
       inputAttributes: { autocomplete: 'new-password' },
       showCancelButton: true,
       confirmButtonText: 'Guardar',
       cancelButtonText: 'Cancelar',
       confirmButtonColor: '#1E293B',
-      inputValidator: (v) => (!v || v.length < 8 ? 'La contraseña debe tener al menos 8 caracteres.' : undefined),
+      inputValidator: (v) => errorContrasena(v ?? '') ?? undefined,
     });
     if (!nueva) return;
     const r = await apiFetch(`${API}/usuarios/${u.id}/contrasena`, { method: 'PUT', body: JSON.stringify({ contrasena: nueva }) });
@@ -104,13 +105,16 @@ export const GestionEquipo = () => {
   const cambiarCorreo = async (u: UsuarioFila) => {
     const { value: correo } = await Swal.fire({
       title: `Correo de "${u.usuario}"`,
-      input: 'email',
+      input: 'text',
+      inputAttributes: { autocapitalize: 'none', spellcheck: 'false', inputmode: 'email' },
       inputValue: esCorreoReal(u.correo) ? u.correo ?? '' : '',
       inputLabel: 'Con un correo real, el usuario podrá recuperar su contraseña por sí mismo.',
       showCancelButton: true,
       confirmButtonText: 'Guardar',
       cancelButtonText: 'Cancelar',
       confirmButtonColor: '#1E293B',
+      inputValidator: (v) => errorCorreo(v ?? '') ?? undefined,
+      preConfirm: (v) => normalizarCorreo(v ?? ''),
     });
     if (!correo) return;
     const r = await apiFetch(`${API}/usuarios/${u.id}/correo`, { method: 'PUT', body: JSON.stringify({ correo }) });
@@ -203,9 +207,9 @@ export const GestionEquipo = () => {
 
             {modal.modo === 'crear' && (
               <>
-                <input className={campo} placeholder="Nombre de usuario" autoComplete="off" value={form.usuario} onChange={(e) => setForm({ ...form, usuario: e.target.value })} />
-                <input className={campo} type="password" placeholder="Contraseña (mín. 8 caracteres)" autoComplete="new-password" value={form.contrasena} onChange={(e) => setForm({ ...form, contrasena: e.target.value })} />
-                <input className={campo} type="email" placeholder="Correo (opcional, para recuperar su contraseña)" autoComplete="off" value={form.correo} onChange={(e) => setForm({ ...form, correo: e.target.value })} />
+                <input className={campo} placeholder="Nombre de usuario (letras, números, . _ -)" autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={50} value={form.usuario} onChange={(e) => setForm({ ...form, usuario: filtrarUsuario(e.target.value) })} />
+                <input className={campo} type="password" placeholder="Contraseña (mín. 8, con letras y números)" autoComplete="new-password" maxLength={100} value={form.contrasena} onChange={(e) => setForm({ ...form, contrasena: e.target.value })} />
+                <input className={campo} type="email" placeholder="Correo (opcional, para recuperar su contraseña)" autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={150} value={form.correo} onChange={(e) => setForm({ ...form, correo: normalizarCorreo(e.target.value) })} />
               </>
             )}
 

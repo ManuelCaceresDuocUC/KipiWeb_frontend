@@ -1,4 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
+import { errorRut, formatearRutEnVivo } from '../helpers/validaciones';
+import { limpiarRut } from '../helpers/rut';
 import { enlaceWhatsApp } from '../config/contacto';
 import { Link } from 'react-router-dom';
 
@@ -61,7 +63,7 @@ export const ConfiguracionDTE = () => {
             setConfig({
               ...CONFIG_INICIAL,
               proveedor: data.proveedor ?? CONFIG_INICIAL.proveedor,
-              rutEmisor: data.rutEmisor ?? '',
+              rutEmisor: formatearRutEnVivo(data.rutEmisor ?? ''),
               acteco: data.acteco ?? '',
               ambiente: data.ambiente ?? CONFIG_INICIAL.ambiente,
               emitirBoletaEfectivo: data.emitirBoletaEfectivo ?? true,
@@ -93,7 +95,7 @@ export const ConfiguracionDTE = () => {
     try {
       const res = await apiFetch(`${API_URL}/dte/probar-conexion`, {
         method: 'POST',
-        body: JSON.stringify(config),
+        body: JSON.stringify({ ...config, rutEmisor: config.rutEmisor.trim() ? limpiarRut(config.rutEmisor).replace(/^(\d+)(.)$/, '$1-$2') : '' }),
       });
 
       if (res.status === 403) {
@@ -116,8 +118,15 @@ export const ConfiguracionDTE = () => {
 
   const handleGuardar = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setGuardando(true);
     setMensaje(null);
+    if (config.proveedor !== 'ninguno' || config.rutEmisor.trim()) {
+      const problema = errorRut(config.rutEmisor, config.proveedor !== 'ninguno', 'El RUT del emisor');
+      if (problema) {
+        setMensaje({ tipo: 'error', texto: problema });
+        return;
+      }
+    }
+    setGuardando(true);
 
     try {
       // apiKey vacía = el servidor conserva la que ya tenía guardada
@@ -238,9 +247,10 @@ export const ConfiguracionDTE = () => {
                 <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">RUT Emisor (Empresa)</label>
                 <input
                   type="text"
-                  placeholder="ej: 76123456-7"
+                  placeholder="ej: 76.123.456-7"
+                  maxLength={12}
                   value={config.rutEmisor}
-                  onChange={(e) => setConfig({ ...config, rutEmisor: e.target.value })}
+                  onChange={(e) => setConfig({ ...config, rutEmisor: formatearRutEnVivo(e.target.value) })}
                   className="w-full p-2.5 rounded border border-slate-300 bg-white focus:outline-none focus:border-slate-500 text-sm font-mono"
                   required={config.proveedor !== 'ninguno'}
                 />
