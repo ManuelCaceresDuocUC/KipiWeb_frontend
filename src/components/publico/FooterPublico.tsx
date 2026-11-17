@@ -57,6 +57,7 @@ export const FooterPublico = () => (
         <span className="sm:float-right mt-2 sm:mt-0 flex gap-4">
           <Link to="/terminos" className="hover:text-slate-300">Términos y Condiciones</Link>
           <Link to="/privacidad" className="hover:text-slate-300">Política de Privacidad</Link>
+          <Link to="/encargo-datos" className="hover:text-slate-300">Encargo de datos</Link>
         </span>
       </div>
     </div>

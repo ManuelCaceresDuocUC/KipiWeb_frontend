@@ -302,6 +302,9 @@ export const ConfiguracionDTE = () => {
                   <p className="text-xs text-slate-500 mt-1">
                     Se guarda cifrada. SimpleFactura usa también los datos de tu empresa (razón social, giro, dirección y comuna) del registro.
                   </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Recomendación de seguridad: si tu cuenta de SimpleFactura permite crear usuarios, crea uno solo para KIPI con los permisos mínimos, y no uses la contraseña de tu cuenta principal ni una que repitas en otros sitios.
+                  </p>
                 </div>
               )}
 
