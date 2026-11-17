@@ -3,6 +3,7 @@ import { LandingKIPI } from './pages/LandingKIPI'; // ✨ Importación de tu nue
 import { Planes } from './pages/Planes';
 import { Terminos } from './pages/Terminos';
 import { Privacidad } from './pages/Privacidad';
+import { EncargoDatos } from './pages/EncargoDatos';
 import { GuiaDte } from './pages/GuiaDte';
 import { Contacto } from './pages/Contacto';
 import { RecuperarClave } from './pages/RecuperarClave';
@@ -36,6 +37,7 @@ function App() {
         <Route path="/contacto" element={<Contacto />} />
         <Route path="/terminos" element={<Terminos />} />
         <Route path="/privacidad" element={<Privacidad />} />
+        <Route path="/encargo-datos" element={<EncargoDatos />} />
         <Route path="/guia-dte" element={<GuiaDte />} />
         <Route path="/recuperar" element={<RecuperarClave />} />
         <Route path="/restablecer" element={<RestablecerClave />} />

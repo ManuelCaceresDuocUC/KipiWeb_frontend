@@ -588,8 +588,9 @@ export const RegistroEmpresa = () => {
             <span>
               He leído y acepto los{' '}
               <Link to="/terminos" target="_blank" className="font-semibold underline underline-offset-2">Términos y Condiciones</Link> y la{' '}
-              <Link to="/privacidad" target="_blank" className="font-semibold underline underline-offset-2">Política de Privacidad</Link>,
-              incluido que, terminada la prueba de {DIAS_PRUEBA} días, para seguir usando KIPI debo activar la suscripción de {formatoPrecio(PLAN_PRINCIPAL.precioMensual)} mensuales inscribiendo mi tarjeta. Declaro tener facultades para contratar en nombre de la empresa.
+              <Link to="/privacidad" target="_blank" className="font-semibold underline underline-offset-2">Política de Privacidad</Link>, incluido el{' '}
+              <Link to="/encargo-datos" target="_blank" className="font-semibold underline underline-offset-2">Anexo de Encargo de Tratamiento de Datos</Link>,
+              y que, terminada la prueba de {DIAS_PRUEBA} días, para seguir usando KIPI debo activar la suscripción de {formatoPrecio(PLAN_PRINCIPAL.precioMensual)} mensuales inscribiendo mi tarjeta. Declaro tener facultades para contratar en nombre de la empresa.
             </span>
           </label>
 
