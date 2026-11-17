@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { errorCantidad, errorMonto, errorTexto, filtrarCodigo, filtrarDecimal, limpiarTexto, soloDigitos } from '../helpers/validaciones';
 import Swal from 'sweetalert2';
 import { apiFetch, leerError } from '../helpers/apiFetch';
 
@@ -47,8 +48,13 @@ export const ModalProductoRapido = ({ nombreInicial, onCerrar, onCreado }: Props
   const guardar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (guardando) return;
-    if (!nombre.trim()) return Swal.fire('Falta el nombre', 'Escribe el nombre del producto.', 'warning');
-    if (!esInsumo && (precio === '' || Number(precio) < 0)) return Swal.fire('Falta el precio', 'Indica el precio de venta al público.', 'warning');
+    const problema =
+      errorTexto(nombre, 'El nombre del producto', 2, 150) ??
+      (!esInsumo && precio === '' ? 'Indica el precio de venta al público.' : null) ??
+      (esInsumo ? null : errorMonto(precio, 'El precio')) ??
+      errorCantidad(stockCritico, 'El aviso de stock bajo', true) ??
+      (codigo.trim() && !/^[A-Za-z0-9._\-/]{1,50}$/.test(codigo.trim()) ? 'El código solo puede tener letras, números y . _ - /' : null);
+    if (problema) return Swal.fire('Revisa los datos', problema, 'warning');
     setGuardando(true);
     try {
       const cat = categorias.find((c) => String(c.id) === categoriaId);
@@ -56,7 +62,7 @@ export const ModalProductoRapido = ({ nombreInicial, onCerrar, onCreado }: Props
       const res = await apiFetch(`${API_URL}/productos`, {
         method: 'POST',
         body: JSON.stringify({
-          descripcion: nombre.trim(),
+          descripcion: limpiarTexto(nombre),
           codigoBarras: codigo.trim(),
           precio: esInsumo ? 0 : Math.round(Number(precio)),
           stock: 0,
@@ -87,7 +93,7 @@ export const ModalProductoRapido = ({ nombreInicial, onCerrar, onCreado }: Props
         <div><label className={etiqueta}>Nombre *</label><input className={campo} maxLength={150} value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus /></div>
         <div>
           <label className={etiqueta}>Código de barras</label>
-          <input className={campo} maxLength={50} value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="Escanéalo o déjalo vacío para crear uno interno" />
+          <input className={campo} maxLength={50} value={codigo} onChange={(e) => setCodigo(filtrarCodigo(e.target.value))} placeholder="Escanéalo o déjalo vacío para crear uno interno" />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -98,7 +104,7 @@ export const ModalProductoRapido = ({ nombreInicial, onCerrar, onCreado }: Props
             </select>
           </div>
           {!esInsumo && (
-            <div><label className={etiqueta}>Precio de venta *</label><input type="number" min="0" className={campo} value={precio} onChange={(e) => setPrecio(e.target.value)} /></div>
+            <div><label className={etiqueta}>Precio de venta *</label><input type="text" inputMode="numeric" className={campo} value={precio} onChange={(e) => setPrecio(soloDigitos(e.target.value, 8))} /></div>
           )}
         </div>
         {!esInsumo && (
@@ -121,7 +127,7 @@ export const ModalProductoRapido = ({ nombreInicial, onCerrar, onCreado }: Props
               {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
           </div>
-          <div><label className={etiqueta}>Avisar con stock bajo</label><input type="number" min="0" className={campo} value={stockCritico} onChange={(e) => setStockCritico(e.target.value)} /></div>
+          <div><label className={etiqueta}>Avisar con stock bajo</label><input type="text" inputMode="decimal" className={campo} value={stockCritico} onChange={(e) => setStockCritico(filtrarDecimal(e.target.value, 3))} /></div>
         </div>
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onCerrar} disabled={guardando} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">Cancelar</button>

@@ -1,20 +1,11 @@
 import { useState } from 'react';
+import { errorCorreo, errorMonto, errorRut, errorTelefono, errorTexto, formatearRutEnVivo, nombrePropio, normalizarCorreo, telefonoParaEnviar } from '../helpers/validaciones';
 import { apiFetch, leerError } from '../helpers/apiFetch';
 import Swal from 'sweetalert2';
 import { imprimirDocumentos } from '../helpers/impresion';
 import { abrirGaveta } from '../helpers/gaveta';
 import type { ClienteInfo } from '../types/ventas.types';
 
-const formatearRut = (rut: string) => {
-  const valorLimpio = rut.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (valorLimpio.length <= 1) return valorLimpio;
-  
-  const cuerpo = valorLimpio.slice(0, -1);
-  const dv = valorLimpio.slice(-1);
-  const cuerpoFormateado = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  
-  return `${cuerpoFormateado}-${dv}`;
-};
 
 export const useClientesPos = (
   setClienteId: (id: number) => void
@@ -34,16 +25,32 @@ export const useClientesPos = (
   const handleCambioRutNuevoCliente = (valorStr: string) => {
     setNuevoCliente(prev => ({
       ...prev,
-      rut: formatearRut(valorStr)
+      rut: formatearRutEnVivo(valorStr)
     }));
   };
 
   const handleCrearCliente = async (e: React.FormEvent) => {
     e.preventDefault();
+    const problema =
+      errorTexto(nuevoCliente.nombre, 'El nombre', 2, 100) ??
+      errorRut(nuevoCliente.rut, true, 'El RUT del cliente') ??
+      errorTelefono(nuevoCliente.telefono) ??
+      errorCorreo(nuevoCliente.email, false, 'El correo') ??
+      errorMonto(nuevoCliente.limiteCredito || 0, 'El límite de crédito', false);
+    if (problema) {
+      Swal.fire('Revisa los datos', problema, 'warning');
+      return;
+    }
     try {
       const response = await apiFetch(`${import.meta.env.VITE_API_URL}/clientes`, {
         method: 'POST',
-        body: JSON.stringify(nuevoCliente)
+        body: JSON.stringify({
+          nombre: nombrePropio(nuevoCliente.nombre),
+          rut: formatearRutEnVivo(nuevoCliente.rut),
+          telefono: nuevoCliente.telefono.trim() ? telefonoParaEnviar(nuevoCliente.telefono) ?? '' : '',
+          email: normalizarCorreo(nuevoCliente.email),
+          limiteCredito: Math.round(nuevoCliente.limiteCredito || 0),
+        })
       });
 
       if (!response.ok) throw new Error(await leerError(response, "No se pudo registrar el cliente"));

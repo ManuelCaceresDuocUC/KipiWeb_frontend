@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { errorTexto, limpiarTexto, nombrePropio } from '../helpers/validaciones';
 import Swal from 'sweetalert2';
 import { apiFetch, leerError } from '../helpers/apiFetch';
 import { actualizarRazonSocialEnSesion } from '../helpers/session';
@@ -61,15 +62,21 @@ export const DatosEmpresa = () => {
   const guardar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cambio || guardando) return;
+    const problema =
+      errorTexto(datos.razonSocial, 'La razón social', 2, 150) ??
+      errorTexto(datos.giro, 'El giro', 2, 80, false) ??
+      errorTexto(datos.direccion, 'La dirección', 3, 100, false) ??
+      errorTexto(datos.comuna, 'La comuna', 2, 60, false);
+    if (problema) return void Swal.fire('Revisa los datos', problema, 'warning');
     setGuardando(true);
     try {
       const res = await apiFetch(`${API_URL}/empresa/datos`, {
         method: 'PUT',
         body: JSON.stringify({
-          razonSocial: datos.razonSocial,
-          giro: datos.giro,
-          direccion: datos.direccion,
-          comuna: datos.comuna,
+          razonSocial: limpiarTexto(datos.razonSocial),
+          giro: limpiarTexto(datos.giro),
+          direccion: limpiarTexto(datos.direccion),
+          comuna: nombrePropio(datos.comuna),
         }),
       });
       if (!res.ok) throw new Error(await leerError(res, 'No se pudieron guardar los datos.'));
@@ -131,7 +138,7 @@ export const DatosEmpresa = () => {
             <div>
               <label className={etiqueta} htmlFor="emp-com">Comuna</label>
               <input id="emp-com" className={campo} value={datos.comuna} maxLength={60}
-                onChange={(e) => setDatos({ ...datos, comuna: e.target.value })} />
+                onChange={(e) => setDatos({ ...datos, comuna: e.target.value })} onBlur={() => setDatos((d) => ({ ...d, comuna: nombrePropio(d.comuna) }))} />
             </div>
           </div>
           <button type="submit" disabled={!cambio || guardando}

@@ -1,4 +1,5 @@
 import { useInventario, type Producto } from '../hooks/useInventario';
+import { errorCantidad, errorMonto, errorTexto, filtrarCodigo, filtrarDecimal, limpiarTexto, soloDigitos } from '../helpers/validaciones';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Swal from 'sweetalert2';
 import { LectorCamara } from '../components/LectorCamara';
@@ -342,19 +343,17 @@ export const Inventario = () => {
     e.preventDefault();
 
     if (guardando) return;
-    if (!form.descripcion.trim() || form.precio === '' || form.stockCritico === '') {
-      return Swal.fire("Información incompleta", "Completa nombre, precio y límite de stock crítico.", "warning");
-    }
-    const numeros = [
-      ['El precio', form.precio], ['El stock', form.stock === '' ? '0' : form.stock],
-      ['El stock crítico', form.stockCritico], ['El costo', form.costo === '' ? '0' : form.costo],
-    ] as const;
-    for (const [nombre, valor] of numeros) {
-      const n = Number(valor);
-      if (!Number.isFinite(n) || n < 0) {
-        return Swal.fire("Valor no válido", `${nombre} debe ser un número igual o mayor a cero.`, "warning");
-      }
-    }
+    const admiteDecimales = form.pesable || form.unidadMedida !== 'UN';
+    const problema =
+      errorTexto(form.descripcion, 'El nombre', 2, 150) ??
+      (form.precio === '' ? 'El precio es obligatorio.' : null) ??
+      errorMonto(form.precio, 'El precio') ??
+      (editandoId ? null : errorCantidad(form.stock, 'El stock', admiteDecimales)) ??
+      (form.stockCritico === '' ? 'El límite de stock crítico es obligatorio.' : null) ??
+      errorCantidad(form.stockCritico, 'El stock crítico', true) ??
+      errorMonto(form.costo, 'El costo', false) ??
+      (form.codigoBarras.trim() && !/^[A-Za-z0-9._\-/]{1,50}$/.test(form.codigoBarras.trim()) ? 'El código solo puede tener letras, números y . _ - /' : null);
+    if (problema) return Swal.fire('Revisa el formulario', problema, 'warning');
 
     const codigoFinal = form.codigoBarras.trim();
 
@@ -363,8 +362,8 @@ export const Inventario = () => {
       : null;
 
     const datosProducto = {
-      descripcion: form.descripcion.trim(),
-      precio: Number(form.precio),
+      descripcion: limpiarTexto(form.descripcion),
+      precio: Math.round(Number(form.precio)),
       stock: Number(form.stock),
       costo: form.costo === '' ? null : Number(form.costo),
       stockCritico: Number(form.stockCritico),
@@ -532,8 +531,9 @@ export const Inventario = () => {
                   type="text" 
                   placeholder="Código de barras (si lo dejas vacío, se crea uno interno)" 
                   className='flex-1 p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' 
+                  maxLength={50} autoComplete="off"
                   value={form.codigoBarras} 
-                  onChange={(e) => setForm({...form, codigoBarras: e.target.value})} 
+                  onChange={(e) => setForm({...form, codigoBarras: filtrarCodigo(e.target.value)})} 
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault(); 
@@ -550,7 +550,7 @@ export const Inventario = () => {
                 </button>
               </div>
 
-              <input type="text" placeholder="Descripción / Nombre del ítem" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.descripcion} onChange={(e) => setForm({...form, descripcion: e.target.value})} />
+              <input type="text" maxLength={150} placeholder="Descripción / Nombre del ítem" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.descripcion} onChange={(e) => setForm({...form, descripcion: e.target.value})} onBlur={() => setForm((f) => ({ ...f, descripcion: limpiarTexto(f.descripcion) }))} />
               
               <select 
                 className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none bg-white'
@@ -563,7 +563,7 @@ export const Inventario = () => {
 
               <div className='grid grid-cols-2 gap-2'>
                 <div className='flex border border-slate-300 rounded overflow-hidden focus-within:border-slate-500'>
-                  <input type="number" step="0.01" className={`w-full p-2.5 outline-none ${editandoId ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}`} placeholder="Stock Inicial" title={editandoId ? 'Para cambiar el stock usa "Ajustar Stock"' : 'Stock inicial en tu sucursal'} value={form.stock} readOnly={!!editandoId} onChange={(e)=> setForm({...form, stock: e.target.value})} />
+                  <input type="text" inputMode="decimal" className={`w-full p-2.5 outline-none ${editandoId ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}`} placeholder="Stock Inicial" title={editandoId ? 'Para cambiar el stock usa "Ajustar Stock"' : 'Stock inicial en tu sucursal'} value={form.stock} readOnly={!!editandoId} onChange={(e)=> setForm({...form, stock: form.pesable || form.unidadMedida !== 'UN' ? filtrarDecimal(e.target.value, 3) : soloDigitos(e.target.value, 7)})} />
                   <select className='bg-slate-100 px-2 text-xs font-semibold outline-none cursor-pointer border-l border-slate-300 text-slate-700' value={form.unidadMedida || ""} onChange={(e) => setForm({ ...form, unidadMedida: e.target.value })}>
                     <option value="UN">UN</option>
                     <option value="KG">KG</option>
@@ -571,7 +571,7 @@ export const Inventario = () => {
                     <option value="LT">LT</option>
                   </select>
                 </div>
-                <input type="number" placeholder="Precio ($)" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.precio} onChange={(e)=> setForm({...form, precio: e.target.value})} />
+                <input type="text" inputMode="numeric" placeholder="Precio ($)" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.precio} onChange={(e)=> setForm({...form, precio: soloDigitos(e.target.value, 8)})} />
               </div>
 
               {!form.esInsumo && (
@@ -587,9 +587,9 @@ export const Inventario = () => {
                 </label>
               )}
 
-              <input type="number" step="0.01" placeholder="Costo unitario ($, opcional)" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.costo} onChange={(e)=> setForm({...form, costo: e.target.value})} />
+              <input type="text" inputMode="decimal" placeholder="Costo unitario ($, opcional)" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.costo} onChange={(e)=> setForm({...form, costo: filtrarDecimal(e.target.value, 2)})} />
 
-              <input type="number" placeholder="Límite de Stock Crítico" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.stockCritico} onChange={(e)=> setForm({...form, stockCritico: e.target.value})} />
+              <input type="text" inputMode="decimal" placeholder="Límite de Stock Crítico" className='p-2.5 border border-slate-300 rounded focus:border-slate-500 outline-none' value={form.stockCritico} onChange={(e)=> setForm({...form, stockCritico: filtrarDecimal(e.target.value, 3)})} />
 
               {!form.esInsumo && (
                 <div className="p-3 bg-slate-50 rounded border border-slate-200">

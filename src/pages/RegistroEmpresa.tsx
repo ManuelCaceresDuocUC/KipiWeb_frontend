@@ -2,7 +2,10 @@ import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Building2, User, Plus, Trash2, ShieldAlert, ArrowLeft, Loader2, Store, MapPin } from 'lucide-react';
 import Swal from 'sweetalert2'; 
-import { esRutValido } from '../helpers/rut';
+import {
+  errorContrasena, errorCorreo, errorRut, errorTexto, errorUsuario, filtrarUsuario, formatearRutEnVivo,
+  limpiarTexto, nombrePropio, normalizarCorreo, primerError, rutParaEnviar, sugerirCorreo,
+} from '../helpers/validaciones';
 import { apiFetch, leerError } from '../helpers/apiFetch';
 import { LEGAL } from '../config/legal';
 import { Turnstile, turnstileActivo } from '../components/publico/Turnstile';
@@ -23,6 +26,11 @@ interface EmpleadoInmediato {
   sucursalId: string; // ID de la sucursal asignada
   correo: string; // opcional: permite recuperar la contraseña por correo
 }
+
+const ErrorCampo = ({ msg }: { msg?: string | null }) =>
+  msg ? <p role="alert" className="text-xs text-red-600 mt-1">{msg}</p> : null;
+
+const borde = (msg?: string | null) => (msg ? 'border-red-400 focus:border-red-500' : 'border-slate-300 focus:border-slate-500');
 
 export const RegistroEmpresa = () => {
   const navigate = useNavigate();
@@ -63,26 +71,63 @@ export const RegistroEmpresa = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Los errores de un campo solo se muestran después de que el usuario pasó por él (o al intentar enviar)
+  const [tocados, setTocados] = useState<Record<string, boolean>>({});
+  const tocar = (k: string) => setTocados((t) => (t[k] ? t : { ...t, [k]: true }));
 
   const formStateRef = useRef({ empresa, sucursales, admin, empleados, tokenVerif, correoVerificado, aceptaTerminos });
   formStateRef.current = { empresa, sucursales, admin, empleados, tokenVerif, correoVerificado, aceptaTerminos };
 
   const API = import.meta.env.VITE_API_URL as string;
-  const correoActual = admin.correo.trim().toLowerCase();
+  const correoActual = normalizarCorreo(admin.correo);
   const correoOk = Boolean(tokenVerif) && correoVerificado === correoActual;
-  const formatoCorreoOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(admin.correo.trim());
+  const formatoCorreoOk = !errorCorreo(admin.correo);
+
+  // Todas las reglas de formato en un solo lugar (mismas que valida el servidor)
+  const errores: Record<string, string | null> = {
+    rut: errorRut(empresa.rut_empresa, true, 'El RUT de la empresa'),
+    razon: errorTexto(empresa.razon_social, 'La razón social', 2, 150),
+    giro: errorTexto(empresa.giro, 'El giro comercial', 2, 80),
+    usuario: errorUsuario(admin.usuario),
+    correo: errorCorreo(admin.correo),
+    correoConfirmacion: !admin.correoConfirmacion ? 'Repite el correo para confirmarlo.'
+      : normalizarCorreo(admin.correo) !== normalizarCorreo(admin.correoConfirmacion) ? 'Los correos electrónicos no coinciden.' : null,
+    contrasena: errorContrasena(admin.contrasena),
+    contrasenaConfirmacion: !admin.contrasenaConfirmacion ? 'Repite la contraseña para confirmarla.'
+      : admin.contrasena !== admin.contrasenaConfirmacion ? 'Las contraseñas no coinciden.' : null,
+  };
+  const nombresSucursal = sucursales.map((x) => nombrePropio(x.nombre).toLowerCase());
+  sucursales.forEach((x, i) => {
+    errores[`suc${x.id}n`] = primerError(
+      errorTexto(x.nombre, 'El nombre de la sucursal', 2, 80),
+      nombresSucursal.indexOf(nombrePropio(x.nombre).toLowerCase()) !== i ? 'Hay sucursales con el mismo nombre.' : null,
+    );
+    // La casa matriz es la dirección de la empresa: se exige completa. En las demás es opcional.
+    errores[`suc${x.id}d`] = errorTexto(x.direccion, 'La dirección', 3, 100, i === 0);
+    errores[`suc${x.id}c`] = errorTexto(x.comuna, 'La comuna', 2, 60, i === 0);
+  });
+  const usuariosUsados = [admin.usuario, ...empleados.map((x) => x.usuario)].map((u) => u.trim().toLowerCase());
+  empleados.forEach((x, i) => {
+    errores[`emp${i}u`] = primerError(
+      errorUsuario(x.usuario),
+      usuariosUsados.indexOf(x.usuario.trim().toLowerCase()) !== i + 1 ? 'Ese usuario está repetido.' : null,
+    );
+    errores[`emp${i}p`] = errorContrasena(x.contrasena);
+    errores[`emp${i}c`] = errorCorreo(x.correo, false, 'El correo');
+  });
+  const ver = (k: string) => (tocados[k] ? errores[k] : null);
 
   const pedirCodigo = async () => {
     setError('');
-    if (!formatoCorreoOk) return setError('Ingresa un correo válido para enviarte el código.');
-    if (admin.correo.trim() !== admin.correoConfirmacion.trim()) return setError('Los correos electrónicos no coinciden.');
+    if (errores.correo) { tocar('correo'); return setError(errores.correo); }
+    if (errores.correoConfirmacion) { tocar('correoConfirmacion'); return setError(errores.correoConfirmacion); }
     if (turnstileActivo && !captcha) return setError('Confirma que no eres un robot para recibir el código.');
     setProcesandoCodigo(true);
     try {
-      const r = await apiFetch(`${API}/auth/registro/codigo`, { method: 'POST', body: JSON.stringify({ correo: admin.correo.trim(), turnstile: captcha }) });
+      const r = await apiFetch(`${API}/auth/registro/codigo`, { method: 'POST', body: JSON.stringify({ correo: normalizarCorreo(admin.correo), turnstile: captcha }) });
       if (!r.ok) throw new Error(await leerError(r, 'No pudimos enviar el código.'));
       setCodigoEnviado(true);
-      Swal.fire({ icon: 'success', title: 'Código enviado', text: `Revisa ${admin.correo.trim()} (y la carpeta de spam).`, confirmButtonColor: '#1E293B', timer: 3500 });
+      Swal.fire({ icon: 'success', title: 'Código enviado', text: `Revisa ${normalizarCorreo(admin.correo)} (y la carpeta de spam).`, confirmButtonColor: '#1E293B', timer: 3500 });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No pudimos enviar el código.');
     } finally {
@@ -96,7 +141,7 @@ export const RegistroEmpresa = () => {
     if (!/^\d{6}$/.test(codigo.trim())) return setError('El código tiene 6 dígitos.');
     setProcesandoCodigo(true);
     try {
-      const r = await apiFetch(`${API}/auth/registro/verificar`, { method: 'POST', body: JSON.stringify({ correo: admin.correo.trim(), codigo: codigo.trim() }) });
+      const r = await apiFetch(`${API}/auth/registro/verificar`, { method: 'POST', body: JSON.stringify({ correo: normalizarCorreo(admin.correo), codigo: codigo.trim() }) });
       if (!r.ok) throw new Error(await leerError(r, 'No pudimos verificar el código.'));
       const data = await r.json();
       setTokenVerif(data.tokenVerificacion);
@@ -110,7 +155,15 @@ export const RegistroEmpresa = () => {
 
   // Handlers para Empresa
   const handleEmpresaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEmpresa((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setEmpresa((prev) => ({ ...prev, [name]: name === 'rut_empresa' ? formatearRutEnVivo(value) : value }));
+  };
+
+  // Al salir del campo se corrige: sin espacios de más, con formato
+  const handleEmpresaBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name } = e.target;
+    tocar(name === 'rut_empresa' ? 'rut' : name === 'razon_social' ? 'razon' : 'giro');
+    if (name !== 'rut_empresa') setEmpresa((prev) => ({ ...prev, [name]: limpiarTexto(prev[name as 'razon_social' | 'giro']) }));
   };
 
   // Handlers para Sucursales
@@ -141,6 +194,13 @@ export const RegistroEmpresa = () => {
     );
   };
 
+  const corregirSucursal = (id: string, field: 'nombre' | 'direccion' | 'comuna') => {
+    tocar(`suc${id}${field[0]}`);
+    setSucursales((prev) => prev.map((suc) => (suc.id === id
+      ? { ...suc, [field]: field === 'direccion' ? limpiarTexto(suc[field]) : nombrePropio(suc[field]) }
+      : suc)));
+  };
+
   const handleSucursalChange = (id: string, field: keyof SucursalItem, value: string) => {
     setSucursales((prev) =>
       prev.map((suc) => (suc.id === id ? { ...suc, [field]: value } : suc))
@@ -149,7 +209,11 @@ export const RegistroEmpresa = () => {
 
   // Handlers para Admin
   const handleAdminChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAdmin((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    const v = name === 'usuario' ? filtrarUsuario(value)
+      : name === 'correo' || name === 'correoConfirmacion' ? normalizarCorreo(value)
+      : value;
+    setAdmin((prev) => ({ ...prev, [name]: v }));
   };
 
   // Handlers para Empleados
@@ -171,6 +235,8 @@ export const RegistroEmpresa = () => {
   };
 
   const handleEmpleadoChange = (index: number, field: keyof EmpleadoInmediato, value: string) => {
+    if (field === 'usuario') value = filtrarUsuario(value);
+    if (field === 'correo') value = normalizarCorreo(value);
     setEmpleados((prev) => {
       const nuevos = [...prev];
       nuevos[index] = { ...nuevos[index], [field]: value };
@@ -196,61 +262,24 @@ export const RegistroEmpresa = () => {
     setError('');
     const { empresa: currentEmpresa, sucursales: currentSucursales, admin: currentAdmin, empleados: currentEmpleados, tokenVerif: tokenActual, correoVerificado: correoOkActual, aceptaTerminos: acepta } = formStateRef.current;
 
-    if (!currentEmpresa.rut_empresa || !currentEmpresa.razon_social || !currentEmpresa.giro) {
-      setError('Por favor completa todos los campos obligatorios de la empresa.');
+    // Todos los campos con error se marcan para que el usuario los vea en rojo
+    const marcas: Record<string, boolean> = {};
+    Object.keys(errores).forEach((k) => { marcas[k] = true; });
+    setTocados(marcas);
+    const filasEmpleado = currentEmpleados.filter((emp) => emp.usuario || emp.contrasena || emp.correo);
+    const primero = primerError(
+      errores.rut, errores.razon, errores.giro,
+      ...currentSucursales.flatMap((x) => [errores[`suc${x.id}n`], errores[`suc${x.id}d`], errores[`suc${x.id}c`]]),
+      errores.usuario, errores.correo, errores.correoConfirmacion, errores.contrasena, errores.contrasenaConfirmacion,
+      ...currentEmpleados.flatMap((_, i) => (filasEmpleado.includes(currentEmpleados[i])
+        ? [errores[`emp${i}u`], errores[`emp${i}p`], errores[`emp${i}c`]] : [])),
+    );
+    if (primero) {
+      setError(primero);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-
-    if (!esRutValido(currentEmpresa.rut_empresa)) {
-      setError('El RUT de la empresa no es válido. Revisa el número y el dígito verificador.');
-      return;
-    }
-
-    const sucursalInvalida = currentSucursales.some(s => !s.nombre.trim());
-    if (sucursalInvalida) {
-      setError('Todas las sucursales deben tener al menos un nombre definido.');
-      return;
-    }
-
-    if (!currentAdmin.usuario || !currentAdmin.contrasena || !currentAdmin.correo) {
-      setError('Por favor completa todos los campos obligatorios del administrador.');
-      return;
-    }
-
-    if (currentAdmin.usuario.trim().length < 3) {
-      setError('El nombre de usuario debe tener al menos 3 caracteres.');
-      return;
-    }
-    if (currentAdmin.contrasena.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres.');
-      return;
-    }
-    const empleadoDebil = currentEmpleados.find(emp => emp.usuario && (emp.usuario.trim().length < 3 || emp.contrasena.length < 8));
-    if (empleadoDebil) {
-      setError(`El empleado "${empleadoDebil.usuario}" necesita usuario de 3+ caracteres y contraseña de 8+.`);
-      return;
-    }
-
-    const regexCorreo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!regexCorreo.test(currentAdmin.correo)) {
-      setError('El formato del correo electrónico no es válido.');
-      return;
-    }
-    if (currentAdmin.correo !== currentAdmin.correoConfirmacion) {
-      setError('Los correos electrónicos no coinciden.');
-      return;
-    }
-    if (currentAdmin.contrasena !== currentAdmin.contrasenaConfirmacion) {
-      setError('Las contraseñas no coinciden.');
-      return;
-    }
-
-    const empleadoCorreoMalo = currentEmpleados.find(emp => emp.correo.trim() && !regexCorreo.test(emp.correo.trim()));
-    if (empleadoCorreoMalo) {
-      setError(`El correo del empleado "${empleadoCorreoMalo.usuario}" no es válido (puedes dejarlo vacío).`);
-      return;
-    }
-    if (!tokenActual || correoOkActual !== currentAdmin.correo.trim().toLowerCase()) {
+    if (!tokenActual || correoOkActual !== normalizarCorreo(currentAdmin.correo)) {
       setError('Verifica el correo del administrador con el código que te enviamos antes de continuar.');
       return;
     }
@@ -264,7 +293,7 @@ export const RegistroEmpresa = () => {
       icon: 'question',
       title: `Comienza tu prueba gratuita de ${DIAS_PRUEBA} días`,
       html: `<div style="text-align:left;font-size:14px;line-height:1.5">
-        <p><b>${currentEmpresa.razon_social.trim().replace(/</g, '&lt;')}</b> (${currentEmpresa.rut_empresa.trim().replace(/</g, '&lt;')})</p>
+        <p><b>${limpiarTexto(currentEmpresa.razon_social).replace(/</g, '&lt;')}</b> (${(rutParaEnviar(currentEmpresa.rut_empresa) ?? '').replace(/</g, '&lt;')})</p>
         <p style="margin-top:8px">Pruebas el <b>${PLAN_PRINCIPAL.nombre}</b> <b>${DIAS_PRUEBA} días gratis, sin ingresar tarjeta</b>.</p>
         <ul style="margin-top:8px;padding-left:18px;list-style:disc">
           <li>Te avisaremos por correo antes de que termine la prueba.</li>
@@ -285,15 +314,19 @@ export const RegistroEmpresa = () => {
         tokenVerificacion: tokenActual,
         aceptaTerminos: true,
         terminosVersion: LEGAL.version,
-        empresa: { ...currentEmpresa },
+        empresa: {
+          rut_empresa: rutParaEnviar(currentEmpresa.rut_empresa) ?? currentEmpresa.rut_empresa,
+          razon_social: limpiarTexto(currentEmpresa.razon_social),
+          giro: limpiarTexto(currentEmpresa.giro),
+        },
         sucursales: currentSucursales.map(s => ({
-          nombre: s.nombre.trim(),
-          direccion: s.direccion.trim() !== '' ? s.direccion.trim() : 'Sin dirección registrada',
-          comuna: s.comuna.trim() !== '' ? s.comuna.trim() : 'Sin comuna registrada'
+          nombre: nombrePropio(s.nombre),
+          direccion: limpiarTexto(s.direccion) !== '' ? limpiarTexto(s.direccion) : 'Sin dirección registrada',
+          comuna: nombrePropio(s.comuna) !== '' ? nombrePropio(s.comuna) : 'Sin comuna registrada'
         })),
         admin: {
-          usuario: currentAdmin.usuario,
-          correo: currentAdmin.correo,
+          usuario: currentAdmin.usuario.trim(),
+          correo: normalizarCorreo(currentAdmin.correo),
           contrasena: currentAdmin.contrasena,
           rol: 'admin'
         },
@@ -302,11 +335,11 @@ export const RegistroEmpresa = () => {
           .map(emp => {
             const sucEncontrada = currentSucursales.find(s => s.id === emp.sucursalId);
             return {
-              usuario: emp.usuario,
+              usuario: emp.usuario.trim(),
               contrasena: emp.contrasena,
               rol: emp.rol === 'administrador' ? 'admin' : 'vendedor',
-              sucursalNombre: sucEncontrada ? sucEncontrada.nombre : currentSucursales[0].nombre,
-              correo: emp.correo.trim()
+              sucursalNombre: nombrePropio(sucEncontrada ? sucEncontrada.nombre : currentSucursales[0].nombre),
+              correo: normalizarCorreo(emp.correo)
             };
           })
       };
@@ -390,16 +423,19 @@ export const RegistroEmpresa = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">RUT Empresa *</label>
-                <input required type="text" name="rut_empresa" placeholder="Ej: 76.123.456-7" autoComplete="off" value={empresa.rut_empresa} onChange={handleEmpresaChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+                <input required type="text" name="rut_empresa" inputMode="text" maxLength={12} placeholder="Ej: 76.123.456-7" autoComplete="off" value={empresa.rut_empresa} onChange={handleEmpresaChange} onBlur={handleEmpresaBlur} className={`w-full p-2.5 rounded border shadow-sm outline-none text-sm bg-white ${borde(ver('rut'))}`} />
+                <ErrorCampo msg={ver('rut')} />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Razón Social *</label>
-                <input required type="text" name="razon_social" value={empresa.razon_social} onChange={handleEmpresaChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+                <input required type="text" name="razon_social" maxLength={150} value={empresa.razon_social} onChange={handleEmpresaChange} onBlur={handleEmpresaBlur} className={`w-full p-2.5 rounded border shadow-sm outline-none text-sm bg-white ${borde(ver('razon'))}`} />
+                <ErrorCampo msg={ver('razon')} />
               </div>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Giro Comercial *</label>
-              <input required type="text" name="giro" value={empresa.giro} onChange={handleEmpresaChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+              <input required type="text" name="giro" maxLength={80} placeholder="Ej: Venta de abarrotes" value={empresa.giro} onChange={handleEmpresaChange} onBlur={handleEmpresaBlur} className={`w-full p-2.5 rounded border shadow-sm outline-none text-sm bg-white ${borde(ver('giro'))}`} />
+              <ErrorCampo msg={ver('giro')} />
             </div>
           </div>
 
@@ -433,15 +469,18 @@ export const RegistroEmpresa = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Nombre Sucursal *</label>
-                      <input required type="text" value={suc.nombre} onChange={(e) => handleSucursalChange(suc.id, 'nombre', e.target.value)} className="w-full p-2 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" placeholder="Ej: Casa Matriz, Local Centro" />
+                      <input required type="text" maxLength={80} value={suc.nombre} onChange={(e) => handleSucursalChange(suc.id, 'nombre', e.target.value)} onBlur={() => corregirSucursal(suc.id, 'nombre')} className={`w-full p-2 rounded border shadow-sm outline-none text-sm bg-white ${borde(ver(`suc${suc.id}n`))}`} placeholder="Ej: Casa Matriz, Local Centro" />
+                      <ErrorCampo msg={ver(`suc${suc.id}n`)} />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Dirección</label>
-                      <input type="text" value={suc.direccion} onChange={(e) => handleSucursalChange(suc.id, 'direccion', e.target.value)} className="w-full p-2 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" placeholder="Ej: Av. Providencia 1234" />
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Dirección{index === 0 && ' *'}</label>
+                      <input type="text" maxLength={100} value={suc.direccion} onChange={(e) => handleSucursalChange(suc.id, 'direccion', e.target.value)} onBlur={() => corregirSucursal(suc.id, 'direccion')} className={`w-full p-2 rounded border shadow-sm outline-none text-sm bg-white ${borde(ver(`suc${suc.id}d`))}`} placeholder="Ej: Av. Providencia 1234" />
+                      <ErrorCampo msg={ver(`suc${suc.id}d`)} />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Comuna</label>
-                      <input type="text" value={suc.comuna} onChange={(e) => handleSucursalChange(suc.id, 'comuna', e.target.value)} className="w-full p-2 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" placeholder="Ej: Providencia" />
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Comuna{index === 0 && ' *'}</label>
+                      <input type="text" maxLength={60} value={suc.comuna} onChange={(e) => handleSucursalChange(suc.id, 'comuna', e.target.value)} onBlur={() => corregirSucursal(suc.id, 'comuna')} className={`w-full p-2 rounded border shadow-sm outline-none text-sm bg-white ${borde(ver(`suc${suc.id}c`))}`} placeholder="Ej: Providencia" />
+                      <ErrorCampo msg={ver(`suc${suc.id}c`)} />
                     </div>
                   </div>
                 </div>
@@ -459,28 +498,38 @@ export const RegistroEmpresa = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Usuario administrador *</label>
-                <input required type="text" name="usuario" value={admin.usuario} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+                <input required type="text" name="usuario" autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={50} value={admin.usuario} onChange={handleAdminChange} onBlur={() => tocar('usuario')} className={`w-full p-2.5 rounded border shadow-sm outline-none text-sm bg-white ${borde(ver('usuario'))}`} />
+                {ver('usuario') ? <ErrorCampo msg={ver('usuario')} /> : <p className="text-[11px] text-slate-400 mt-1">Letras, números, punto, guion o guion bajo. Sin espacios.</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Correo electrónico *</label>
-                <input required type="email" name="correo" autoComplete="email" value={admin.correo} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+                <input required type="email" name="correo" autoComplete="email" autoCapitalize="none" spellCheck={false} maxLength={150} value={admin.correo} onChange={handleAdminChange} onBlur={() => tocar('correo')} className={`w-full p-2.5 rounded border shadow-sm outline-none text-sm bg-white ${borde(ver('correo'))}`} />
+                <ErrorCampo msg={ver('correo')} />
+                {sugerirCorreo(admin.correo) && (
+                  <button type="button" onClick={() => setAdmin((prev) => ({ ...prev, correo: sugerirCorreo(prev.correo) ?? prev.correo }))} className="text-xs text-slate-700 underline mt-1">
+                    Usar {sugerirCorreo(admin.correo)}
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Confirmar correo *</label>
-                <input required type="email" name="correoConfirmacion" value={admin.correoConfirmacion} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+                <input required type="email" name="correoConfirmacion" autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={150} value={admin.correoConfirmacion} onChange={handleAdminChange} onBlur={() => tocar('correoConfirmacion')} onPaste={(e) => e.preventDefault()} className={`w-full p-2.5 rounded border shadow-sm outline-none text-sm bg-white ${borde(ver('correoConfirmacion'))}`} />
+                <ErrorCampo msg={ver('correoConfirmacion')} />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Contraseña *</label>
-                <input required type="password" name="contrasena" autoComplete="new-password" value={admin.contrasena} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+                <input required type="password" name="contrasena" autoComplete="new-password" maxLength={100} value={admin.contrasena} onChange={handleAdminChange} onBlur={() => tocar('contrasena')} className={`w-full p-2.5 rounded border shadow-sm outline-none text-sm bg-white ${borde(ver('contrasena'))}`} />
+                {ver('contrasena') ? <ErrorCampo msg={ver('contrasena')} /> : <p className="text-[11px] text-slate-400 mt-1">Mínimo 8 caracteres, con letras y números.</p>}
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Confirmar contraseña *</label>
-              <input required type="password" name="contrasenaConfirmacion" autoComplete="new-password" value={admin.contrasenaConfirmacion} onChange={handleAdminChange} className="w-full p-2.5 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+              <input required type="password" name="contrasenaConfirmacion" autoComplete="new-password" maxLength={100} value={admin.contrasenaConfirmacion} onChange={handleAdminChange} onBlur={() => tocar('contrasenaConfirmacion')} className={`w-full p-2.5 rounded border shadow-sm outline-none text-sm bg-white ${borde(ver('contrasenaConfirmacion'))}`} />
+              <ErrorCampo msg={ver('contrasenaConfirmacion')} />
             </div>
 
             {admin.contrasena && (
@@ -547,13 +596,16 @@ export const RegistroEmpresa = () => {
                   <div key={index} className="flex flex-col md:flex-row gap-3 items-center bg-slate-50 p-3 rounded border border-slate-200">
                     
                     <div className="w-full md:flex-1">
-                      <input required type="text" placeholder="Usuario empleado" value={emp.usuario} onChange={(e) => handleEmpleadoChange(index, 'usuario', e.target.value)} className="w-full p-2 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+                      <input required type="text" placeholder="Usuario empleado" autoCapitalize="none" spellCheck={false} maxLength={50} value={emp.usuario} onChange={(e) => handleEmpleadoChange(index, 'usuario', e.target.value)} onBlur={() => tocar(`emp${index}u`)} className={`w-full p-2 rounded border shadow-sm outline-none text-sm bg-white ${borde(ver(`emp${index}u`))}`} />
+                      <ErrorCampo msg={ver(`emp${index}u`)} />
                     </div>
                     <div className="w-full md:flex-1">
-                      <input required type="password" placeholder="Contraseña" value={emp.contrasena} onChange={(e) => handleEmpleadoChange(index, 'contrasena', e.target.value)} className="w-full p-2 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+                      <input required type="password" placeholder="Contraseña" autoComplete="new-password" maxLength={100} value={emp.contrasena} onChange={(e) => handleEmpleadoChange(index, 'contrasena', e.target.value)} onBlur={() => tocar(`emp${index}p`)} className={`w-full p-2 rounded border shadow-sm outline-none text-sm bg-white ${borde(ver(`emp${index}p`))}`} />
+                      <ErrorCampo msg={ver(`emp${index}p`)} />
                     </div>
                     <div className="w-full md:flex-1">
-                      <input type="email" placeholder="Correo (opcional)" title="Con correo, el empleado puede recuperar su contraseña solo" value={emp.correo} onChange={(e) => handleEmpleadoChange(index, 'correo', e.target.value)} autoComplete="off" className="w-full p-2 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white" />
+                      <input type="email" placeholder="Correo (opcional)" title="Con correo, el empleado puede recuperar su contraseña solo" value={emp.correo} onChange={(e) => handleEmpleadoChange(index, 'correo', e.target.value)} onBlur={() => tocar(`emp${index}c`)} autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={150} className={`w-full p-2 rounded border shadow-sm outline-none text-sm bg-white ${borde(ver(`emp${index}c`))}`} />
+                      <ErrorCampo msg={ver(`emp${index}c`)} />
                     </div>
                     <div className="w-full md:w-44">
                       <select value={emp.rol} onChange={(e) => handleEmpleadoChange(index, 'rol', e.target.value as 'vendedor' | 'administrador')} className="w-full p-2 rounded border border-slate-300 shadow-sm outline-none text-sm focus:border-slate-500 bg-white cursor-pointer">
