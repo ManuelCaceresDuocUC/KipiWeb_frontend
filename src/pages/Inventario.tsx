@@ -102,7 +102,7 @@ export const Inventario = () => {
     stock: '',
     costo: '',
     stockCritico: '',
-    esInsumo: true,
+    esInsumo: false,
     unidadMedida: 'UN',
     pesable: false,
     categoriaId: '' as number | '' 
@@ -303,7 +303,7 @@ export const Inventario = () => {
     setListaIngredientesSeleccionados([]);
     setForm({ 
       codigoBarras: '', descripcion: '', precio: '', stock: '', costo: '',
-      stockCritico: '', esInsumo: true, unidadMedida: 'UN', pesable: false, categoriaId: ''
+      stockCritico: '', esInsumo: false, unidadMedida: 'UN', pesable: false, categoriaId: ''
     });
   };
 
@@ -525,6 +525,9 @@ export const Inventario = () => {
                 <button type="button" onClick={() => setForm({...form, esInsumo: true})} className={`flex-1 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-colors ${form.esInsumo ? 'bg-slate-800 text-white shadow-sm' : 'bg-transparent text-slate-600'}`}>Insumo</button>
                 <button type="button" onClick={() => setForm({...form, esInsumo: false})} className={`flex-1 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-colors ${!form.esInsumo ? 'bg-slate-800 text-white shadow-sm' : 'bg-transparent text-slate-600'}`}>Producto para Venta</button>
               </div>
+              <p className="text-xs text-slate-500 -mt-1">
+                {form.esInsumo ? 'Insumo: materia prima que se usa en recetas; no se vende directo en caja.' : 'Producto para venta: aparece en caja con su precio. Si es un ingrediente, cámbialo a Insumo.'}
+              </p>
 
               <div className="flex gap-2">
                 <input 
