@@ -12,6 +12,25 @@ import { enviarAEstacion, impresionRemotaActiva } from './estacionImpresion';
 
 const CLAVE_AUTO = 'kipipos_impresion_auto';
 
+const CLAVE_ANCHO = 'kipi_ancho_ticket_mm';
+
+/** Ancho del papel de la impresora (58 u 80 mm), guardado en el equipo al leer la configuración de la empresa. */
+export const anchoTicketMm = (): 58 | 80 => {
+  try {
+    return localStorage.getItem(CLAVE_ANCHO) === '58' ? 58 : 80;
+  } catch {
+    return 80;
+  }
+};
+
+export const guardarAnchoTicketMm = (mm: number) => {
+  try {
+    localStorage.setItem(CLAVE_ANCHO, mm === 58 ? '58' : '80');
+  } catch {
+    // sin almacenamiento: se usa 80 mm
+  }
+};
+
 /** Con la gaveta "por impresión" la gaveta se abre al imprimir: la impresión no puede desactivarse. */
 export const modoGavetaImpresion = (): boolean => {
   try {
@@ -187,8 +206,8 @@ export const imprimirTicketLocal = (t: TicketLocal): Promise<boolean> =>
       .join('');
     const medios = t.metodos.map((m) => ETIQUETA_METODO[m] ?? m).join(' + ');
     const html = `<!doctype html><html><head><meta charset="utf-8"><style>
-      @page{size:80mm auto;margin:3mm}
-      body{font-family:monospace;font-size:12px;width:72mm;margin:0;color:#000}
+      @page{size:${anchoTicketMm()}mm auto;margin:3mm}
+      body{font-family:monospace;font-size:${anchoTicketMm() === 58 ? 11 : 12}px;width:${anchoTicketMm() - 8}mm;margin:0;color:#000}
       h1{font-size:14px;text-align:center;margin:0 0 2px}
       p{margin:2px 0}.c{text-align:center}.d{text-align:right}
       table{width:100%;border-collapse:collapse;margin:6px 0}
@@ -239,8 +258,8 @@ export const imprimirTicketLocal = (t: TicketLocal): Promise<boolean> =>
 export const imprimirHtml80 = (cuerpo: string): Promise<boolean> =>
   new Promise((resolve) => {
     const html = `<!doctype html><html><head><meta charset="utf-8"><style>
-      @page{size:80mm auto;margin:3mm}
-      body{font-family:monospace;font-size:12px;width:72mm;margin:0;color:#000}
+      @page{size:${anchoTicketMm()}mm auto;margin:3mm}
+      body{font-family:monospace;font-size:${anchoTicketMm() === 58 ? 11 : 12}px;width:${anchoTicketMm() - 8}mm;margin:0;color:#000}
       h1{font-size:14px;text-align:center;margin:0 0 2px}
       p{margin:2px 0}.c{text-align:center}.d{text-align:right}
       hr{border:0;border-top:1px dashed #000;margin:6px 0}

@@ -32,7 +32,7 @@ export const CARACTERISTICAS: Caracteristica[] = [
   { id: 'pos', categoria: 'Ventas y caja', nombre: 'Punto de venta web', detalle: 'Venta rápida con buscador y lector de código de barras (también con la cámara del celular).' },
   { id: 'pagos', categoria: 'Ventas y caja', nombre: 'Múltiples formas de pago', detalle: 'Efectivo, tarjeta, transferencia, crédito (fiado) y vales.' },
   { id: 'turnos', categoria: 'Ventas y caja', nombre: 'Turnos y cierre de caja', detalle: 'Apertura y cierre de turno con arqueo del efectivo y trazabilidad de movimientos.' },
-  { id: 'tickets', categoria: 'Ventas y caja', nombre: 'Comprobantes e impresión', detalle: 'Ticket para impresora térmica de 80 mm, descarga en PDF y envío por correo.' },
+  { id: 'tickets', categoria: 'Ventas y caja', nombre: 'Comprobantes e impresión', detalle: 'Ticket para impresora térmica de 58 u 80 mm, descarga en PDF y envío por correo.' },
   { id: 'clientes', categoria: 'Ventas y caja', nombre: 'Clientes y fiado', detalle: 'Ficha de clientes, créditos, abonos y estado de cuenta.' },
   { id: 'stock', categoria: 'Inventario', nombre: 'Stock en tiempo real', detalle: 'Descuento automático por venta y alertas de productos con stock crítico.' },
   { id: 'catalogo', categoria: 'Inventario', nombre: 'Productos y categorías', detalle: 'Catálogo organizado, con códigos de barras y valorización del inventario.' },

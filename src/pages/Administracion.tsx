@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Swal from 'sweetalert2';
+import { guardarAnchoTicketMm } from '../helpers/impresion';
 
 // Importación de los Custom Hooks
 import { useAdminPanel } from '../hooks/useAdminPanel';
@@ -84,6 +85,8 @@ export const Administracion = () => {
   // Fiado (venta a crédito) por empresa y edición del límite de cada cliente
   const [permiteFiado, setPermiteFiado] = useState(false);
   const [guardandoFiado, setGuardandoFiado] = useState(false);
+  const [anchoTicket, setAnchoTicket] = useState<58 | 80>(80);
+  const [guardandoAncho, setGuardandoAncho] = useState(false);
   const [clienteEstadoCuenta, setClienteEstadoCuenta] = useState<number | null>(null);
 
   useEffect(() => {
@@ -91,7 +94,12 @@ export const Administracion = () => {
     const cargar = async () => {
       try {
         const res = await apiFetch(`${API_URL}/empresa/config-ventas`);
-        if (res.ok) setPermiteFiado(Boolean((await res.json()).permiteFiado));
+        if (res.ok) {
+          const cfg = await res.json();
+          setPermiteFiado(Boolean(cfg.permiteFiado));
+          setAnchoTicket(cfg.anchoTicketMm === 58 ? 58 : 80);
+          guardarAnchoTicketMm(cfg.anchoTicketMm);
+        }
       } catch (e) {
         console.error('No se pudo leer la configuración de ventas', e);
       }
@@ -112,6 +120,23 @@ export const Administracion = () => {
       Swal.fire('Error', e instanceof Error ? e.message : 'No se pudo guardar la configuración', 'error');
     } finally {
       setGuardandoFiado(false);
+    }
+  };
+
+  const cambiarAnchoTicket = async (mm: 58 | 80) => {
+    setGuardandoAncho(true);
+    try {
+      const res = await apiFetch(`${API_URL}/empresa/config-ventas`, {
+        method: 'PUT',
+        body: JSON.stringify({ anchoTicketMm: mm }),
+      });
+      if (!res.ok) throw new Error(await leerError(res, 'No se pudo guardar el ancho del papel'));
+      setAnchoTicket(mm);
+      guardarAnchoTicketMm(mm);
+    } catch (e) {
+      Swal.fire('Error', e instanceof Error ? e.message : 'No se pudo guardar el ancho del papel', 'error');
+    } finally {
+      setGuardandoAncho(false);
     }
   };
 
@@ -498,6 +523,20 @@ export const Administracion = () => {
                 Configurar Proveedor & API Key
               </button>
             </Link>
+          </div>
+          <div className="bg-white rounded shadow-sm border border-slate-200 p-6">
+            <h2 className="text-base font-semibold text-slate-800 uppercase tracking-wide mb-1">Impresora de tickets</h2>
+            <p className="text-slate-500 text-xs mb-4 border-b border-slate-100 pb-3">
+              Ancho del papel de tu impresora térmica. Se aplica a boletas, vales y comprobantes.
+            </p>
+            <div className="flex gap-2">
+              {([80, 58] as const).map((mm) => (
+                <button key={mm} type="button" disabled={guardandoAncho} onClick={() => cambiarAnchoTicket(mm)}
+                  className={`flex-1 py-2.5 rounded border text-sm font-medium transition-colors disabled:opacity-50 ${anchoTicket === mm ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
+                  {mm} mm{mm === 80 ? ' (estándar)' : ' (compacta)'}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="bg-white rounded shadow-sm border border-slate-200 p-6">
             <h2 className="text-base font-semibold text-slate-800 uppercase tracking-wide mb-1">Gestión de Cartera</h2>

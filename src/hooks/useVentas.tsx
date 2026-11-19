@@ -3,7 +3,7 @@ import Swal from "sweetalert2";
 import { apiFetch, ErrorConexion, esErrorDeConexion, leerError } from "../helpers/apiFetch";
 import type { ComprobanteVenta, LineaPago } from "../types/ventas.types";
 import { pedirCantidadGranel, subtotalLinea } from "../helpers/granel";
-import { copiasTicket, imprimirDocumentos, imprimirTicketLocal } from "../helpers/impresion";
+import { copiasTicket, guardarAnchoTicketMm, imprimirDocumentos, imprimirTicketLocal } from "../helpers/impresion";
 import { agregarVentaPendiente, siguienteNumeroLocal, type VentaPendiente } from "../helpers/colaVentas";
 import { sinConexionSegura } from "../helpers/conexion";
 import { getSesion } from "../helpers/session";
@@ -83,7 +83,11 @@ export const useVentas = (
     const cargarConfig = async () => {
       try {
         const res = await apiFetch(`${import.meta.env.VITE_API_URL}/empresa/config-ventas`);
-        if (res.ok) setPermiteFiado(Boolean((await res.json()).permiteFiado));
+        if (res.ok) {
+          const cfg = await res.json();
+          setPermiteFiado(Boolean(cfg.permiteFiado));
+          guardarAnchoTicketMm(cfg.anchoTicketMm);
+        }
       } catch {
         // Sin configuración se asume fiado apagado
       }
